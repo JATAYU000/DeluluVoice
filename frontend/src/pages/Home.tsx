@@ -1,19 +1,8 @@
-import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
-import { Mic2, Music, ArrowRight, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Mic2, ArrowRight, Sparkles } from 'lucide-react';
 
 export default function Home() {
-    const [lyrics, setLyrics] = useState('');
-    const [instrumental, setInstrumental] = useState(true);
-    const navigate = useNavigate();
-
-    const handleGenerate = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!lyrics.trim()) return;
-        navigate('/signup');
-    };
-
     return (
         <div className="min-h-screen flex flex-col items-center bg-dark-900 text-cream-100 font-sans relative overflow-hidden">
             {/* Background Ambience Layer */}
@@ -74,72 +63,23 @@ export default function Home() {
                     </p>
                 </motion.div>
 
-                {/* The Generator Console */}
+                {/* Call to Action */}
                 <motion.div
                     initial={{ opacity: 0, y: 40 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                    className="w-full max-w-3xl relative"
+                    className="flex flex-col items-center gap-6 mt-8"
                 >
-                    {/* Outer Console Glow */}
-                    <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/30 to-orange-500/10 rounded-3xl blur-md opacity-50" />
-
-                    <div className="relative bg-dark-800/80 border border-white/10 rounded-3xl p-8 md:p-10 backdrop-blur-2xl shadow-2xl">
-                        <form onSubmit={handleGenerate} className="flex flex-col gap-8">
-                            <div className="flex flex-col gap-3">
-                                <label htmlFor="lyrics" className="text-sm font-bold tracking-widest text-orange-500 uppercase flex items-center gap-2">
-                                    <Music className="w-4 h-4" />
-                                    Source Lyrics
-                                </label>
-                                <div className="relative group">
-                                    <textarea
-                                        id="lyrics"
-                                        value={lyrics}
-                                        onChange={(e) => setLyrics(e.target.value)}
-                                        placeholder="Type or paste your verses here..."
-                                        className="w-full h-48 bg-dark-900/50 border border-white/5 rounded-2xl p-6 text-xl text-white placeholder-cream-200/20 focus:outline-none focus:ring-1 focus:ring-orange-500/50 focus:border-orange-500/50 resize-none transition-all custom-scrollbar font-sans"
-                                        required
-                                    />
-                                    {/* Subtle inner shadow effect on focus */}
-                                    <div className="absolute inset-0 rounded-2xl pointer-events-none border border-transparent group-focus-within:border-orange-500/30 transition-colors" />
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-between border-t border-white/5 pt-8">
-                                <div className="flex items-center gap-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => setInstrumental(!instrumental)}
-                                        className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus:outline-none ${instrumental ? 'bg-orange-500 shadow-neon' : 'bg-dark-600'
-                                            }`}
-                                    >
-                                        <span
-                                            className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${instrumental ? 'translate-x-8' : 'translate-x-1'
-                                                }`}
-                                        />
-                                    </button>
-                                    <div className="flex flex-col">
-                                        <span className="text-sm font-bold text-white tracking-wide">Generate Beat</span>
-                                        <span className="text-xs text-cream-200/40">Includes instrumental backing</span>
-                                    </div>
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={!lyrics.trim()}
-                                    className="group relative flex items-center justify-center gap-3 bg-white text-dark-900 px-8 py-4 rounded-full font-black tracking-wide hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 overflow-hidden"
-                                >
-                                    <span className="relative z-10 flex items-center gap-2">
-                                        GENERATE MIX <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                                    </span>
-                                    <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-orange-500 opacity-0 group-hover:opacity-100 transition-opacity z-0" />
-                                    <span className="relative z-20 flex items-center gap-2 opacity-0 group-hover:opacity-100 absolute inset-0 text-white transition-opacity justify-center">
-                                        GENERATE MIX <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                                    </span>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                    <Link
+                        to="/signup"
+                        className="group relative flex items-center justify-center gap-3 bg-white text-dark-900 px-10 py-5 rounded-full font-black text-lg tracking-wide hover:scale-105 transition-transform overflow-hidden shadow-[0_0_40px_rgba(255,100,0,0.3)] hover:shadow-[0_0_60px_rgba(255,100,0,0.5)]"
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-orange-500 opacity-0 group-hover:opacity-100 transition-opacity z-0" />
+                        <span className="relative z-20 flex items-center gap-2 group-hover:text-white transition-colors">
+                            START CREATING NOW <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                        </span>
+                    </Link>
+                    <p className="text-cream-200/40 text-sm font-medium">No credit card required. Get 10 free credits instantly.</p>
                 </motion.div>
             </main>
         </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mic2, ArrowRight } from 'lucide-react';
@@ -8,13 +8,23 @@ export default function Login() {
     const [password, setPassword] = useState('');
     const navigate = useNavigate();
 
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                navigate('/');
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [navigate]);
+
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
         navigate('/dashboard');
     };
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <div className="min-h-screen flex flex-col items-center justify-center p-4" onClick={() => navigate('/')}>
             <Link to="/" className="fixed top-6 left-6 flex items-center gap-2 group">
                 <Mic2 className="text-orange-500 w-6 h-6 group-hover:scale-110 transition-transform" />
                 <span className="text-xl font-bold tracking-tighter">DELULU<span className="text-orange-500">VOICE</span></span>
@@ -24,6 +34,7 @@ export default function Login() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="w-full max-w-md bg-gray-900/50 border border-white/10 rounded-3xl p-8 backdrop-blur-sm"
+                onClick={(e) => e.stopPropagation()}
             >
                 <div className="text-center mb-8">
                     <h2 className="text-3xl font-bold mb-2">Welcome Back</h2>

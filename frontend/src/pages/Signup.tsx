@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mic2, ArrowRight } from 'lucide-react';
@@ -9,6 +9,16 @@ export default function Signup() {
     const [password, setPassword] = useState('');
     const navigate = useNavigate();
 
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                navigate('/');
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [navigate]);
+
     const handleSignup = (e: React.FormEvent) => {
         e.preventDefault();
         // Simulate signup and grant 10 free credits
@@ -16,7 +26,7 @@ export default function Signup() {
     };
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <div className="min-h-screen flex flex-col items-center justify-center p-4" onClick={() => navigate('/')}>
             <Link to="/" className="fixed top-6 left-6 flex items-center gap-2 group">
                 <Mic2 className="text-orange-500 w-6 h-6 group-hover:scale-110 transition-transform" />
                 <span className="text-xl font-bold tracking-tighter">DELULU<span className="text-orange-500">VOICE</span></span>
@@ -26,6 +36,7 @@ export default function Signup() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="w-full max-w-md bg-gray-900/50 border border-white/10 rounded-3xl p-8 backdrop-blur-sm"
+                onClick={(e) => e.stopPropagation()}
             >
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 text-orange-400 text-xs font-bold mb-4 border border-orange-500/20">

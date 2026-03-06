@@ -1,32 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
-import { Link } from 'react-router-dom';
-import { Mic2, Coins, Play, X, Plus, Pause, Square, Rewind, FastForward } from 'lucide-react';
-
-export interface Cassette {
-    id: string;
-    name: string;
-    color: string;
-    createdAt: string;
-}
-
-const MOCK_TAPES: Cassette[] = [
-    { id: '1', name: 'Midnight Cruising', color: 'linear-gradient(to bottom right, #ff5500, #ff8c00)', createdAt: '1987-05-12T00:00:00.000Z' },
-    { id: '2', name: 'Neon Dreams', color: 'linear-gradient(to bottom right, #8b5cf6, #d946ef)', createdAt: '1989-11-23T00:00:00.000Z' },
-    { id: '3', name: 'Cyberpunk Verse', color: 'linear-gradient(to bottom right, #10b981, #34d399)', createdAt: '1992-02-14T00:00:00.000Z' },
-    { id: '4', name: 'LoFi Study Beat', color: 'linear-gradient(to bottom right, #3b82f6, #60a5fa)', createdAt: '1995-08-08T00:00:00.000Z' },
-    { id: '5', name: 'Hard Drill Pt 2', color: 'linear-gradient(to bottom right, #ef4444, #f87171)', createdAt: '1998-12-31T00:00:00.000Z' },
-];
-
-const STRIPE_COLORS = [
-    'linear-gradient(to bottom right, #ff5500, #ff8c00)',
-    'linear-gradient(to bottom right, #8b5cf6, #d946ef)',
-    'linear-gradient(to bottom right, #10b981, #34d399)',
-    'linear-gradient(to bottom right, #3b82f6, #60a5fa)',
-    'linear-gradient(to bottom right, #ef4444, #f87171)',
-    'linear-gradient(to bottom right, #ec4899, #f472b6)',
-    'linear-gradient(to bottom right, #f59e0b, #fbbf24)'
-];
+import { Link, useNavigate } from 'react-router-dom';
+import { Mic2, Play, X, Plus, Pause, Square, SkipBack, SkipForward } from 'lucide-react';
+import { useTape, type Cassette, STRIPE_COLORS } from '../context/TapeContext';
+import { GoldCoin } from '../components/GoldCoin';
 
 interface CassetteGraphicProps {
     tape: Cassette;
@@ -122,7 +99,7 @@ function CassetteGraphic({ tape, className = "", isEditing, tempName, tempColor,
                 {/* Bottom Text Area */}
                 <div className="mt-auto flex justify-between items-end w-full relative z-10 px-2 pb-0 opacity-90">
                     <span className="text-black/60 font-mono text-[8px] font-bold tracking-widest whitespace-nowrap mb-0.5">
-                        {new Date(tape.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })}
+                        {new Date(tape.createdAt || new Date()).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })}
                     </span>
                     <span className="text-black font-display font-black text-2xl leading-none tracking-tighter">90</span>
                 </div>
@@ -140,10 +117,10 @@ function CassetteGraphic({ tape, className = "", isEditing, tempName, tempColor,
 }
 
 export default function Dashboard() {
-    const [credits, setCredits] = useState(25);
-    // Tapes are fixed in their grid positions (we don't reorder them on play)
-    const [tapes, setTapes] = useState<Cassette[]>(MOCK_TAPES);
+    const { tapes, credits, isPro, updateTape, deleteTape } = useTape();
+    const navigate = useNavigate();
     const [showTapeModal, setShowTapeModal] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // The tape currently selected to be played or playing
     const [selectedTape, setSelectedTape] = useState<Cassette | null>(null);
@@ -152,7 +129,13 @@ export default function Dashboard() {
     const [playerState, setPlayerState] = useState<'idle' | 'inserting' | 'ready' | 'playing' | 'ejecting'>('idle');
 
     // Volume Knob State (-135deg to +135deg)
-    const [volumeRotation, setVolumeRotation] = useState(-135);
+    const [volumeRotation, setVolumeRotation] = useState(81); // 80% volume default
+
+    // Audio Playback States
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+
     const handleVolumePan = (_e: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) => {
         // Calculate rotation based on vertical drag primarily
         const delta = info.delta.y * -1 + info.delta.x;
@@ -164,8 +147,7 @@ export default function Dashboard() {
         });
     };
 
-    // New Generation State
-    const [newLyrics, setNewLyrics] = useState('');
+    // Rename Modal State
     const [newName, setNewName] = useState('');
     const [newColor, setNewColor] = useState(STRIPE_COLORS[0]);
     const [editingTapeId, setEditingTapeId] = useState<string | null>(null);
@@ -173,57 +155,54 @@ export default function Dashboard() {
     const openEditModal = (tape: Cassette) => {
         setEditingTapeId(tape.id);
         setNewName(tape.name);
-        setNewLyrics('Loaded Verse...');
         setNewColor(tape.color);
         setShowTapeModal(true);
+        setIsDeleting(false);
     };
 
-    const handleGenerate = (e: React.FormEvent) => {
+    const handleSaveEdit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newLyrics.trim() || !newName.trim()) return;
+        if (!editingTapeId || !newName.trim()) return;
 
-        if (editingTapeId) {
-            setTapes(prev => prev.map(t => t.id === editingTapeId ? { ...t, name: newName, color: newColor } : t));
-            if (selectedTape?.id === editingTapeId) {
-                setSelectedTape(prev => prev ? { ...prev, name: newName, color: newColor } : prev);
-            }
-        } else {
-            const newTape: Cassette = {
-                id: Math.random().toString(),
-                name: newName,
-                color: newColor,
-                createdAt: new Date().toISOString()
-            };
-            setTapes((prev) => {
-                const updated = [...prev];
-                const emptyIndex = updated.findIndex(t => !t);
-                if (emptyIndex !== -1) {
-                    updated[emptyIndex] = newTape;
-                } else if (updated.length < 40) {
-                    updated.push(newTape);
-                }
-                return updated;
-            });
-            setCredits((prev) => Math.max(0, prev - 1));
+        updateTape(editingTapeId, { name: newName, color: newColor });
+        if (selectedTape?.id === editingTapeId) {
+            setSelectedTape(prev => prev ? { ...prev, name: newName, color: newColor } : prev);
         }
 
         setShowTapeModal(false);
         setEditingTapeId(null);
-        setNewLyrics('');
         setNewName('');
         setNewColor(STRIPE_COLORS[0]);
+        setIsDeleting(false);
+    };
+
+    const handleDeleteTape = () => {
+        if (!editingTapeId) return;
+        if (!isDeleting) {
+            setIsDeleting(true);
+            return;
+        }
+        deleteTape(editingTapeId);
+        if (selectedTape?.id === editingTapeId) {
+            handleEject(); // eject if currently playing
+        }
+        setShowTapeModal(false);
+        setEditingTapeId(null);
+        setIsDeleting(false);
     };
 
     const openNewTapeModal = () => {
-        setEditingTapeId(null);
-        setNewName('');
-        setNewLyrics('');
-        setNewColor(STRIPE_COLORS[0]);
-        setShowTapeModal(true);
+        navigate('/generate');
     };
 
     const handleSelectTape = (tape: Cassette) => {
         if (selectedTape?.id === tape.id || playerState === 'inserting' || playerState === 'ejecting') return;
+
+        // Stop current audio if playing
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+        }
 
         // Eject current if any
         if (selectedTape) {
@@ -240,6 +219,13 @@ export default function Dashboard() {
 
     const handleEject = () => {
         if (!selectedTape || playerState === 'inserting' || playerState === 'ejecting') return;
+
+        // Stop audio
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+        }
+
         setPlayerState('ejecting');
         setTimeout(() => {
             setSelectedTape(null);
@@ -247,26 +233,69 @@ export default function Dashboard() {
         }, 600);
     };
 
-    const togglePlay = () => {
-        if (playerState === 'playing') setPlayerState('ready');
-        else if (playerState === 'ready') setPlayerState('playing');
+    const handlePlayPause = () => {
+        if (!selectedTape || playerState === 'inserting' || playerState === 'ejecting') return;
+
+        if (playerState === 'playing') {
+            audioRef.current?.pause();
+            setPlayerState('ready');
+        } else if (playerState === 'ready') {
+            audioRef.current?.play().catch(e => console.error("Playback failed:", e));
+            setPlayerState('playing');
+        }
     };
 
     const handleNext = () => {
         if (!selectedTape || playerState === 'inserting' || playerState === 'ejecting') return;
         const currentIndex = tapes.findIndex(t => t.id === selectedTape.id);
         const nextIndex = (currentIndex + 1) % tapes.length;
-        // Don't modify the tapes array order! Just select the new one.
-        handleSelectTape(tapes[nextIndex]);
+        if (tapes[nextIndex]) handleSelectTape(tapes[nextIndex]);
     };
 
     const handlePrev = () => {
         if (!selectedTape || playerState === 'inserting' || playerState === 'ejecting') return;
         const currentIndex = tapes.findIndex(t => t.id === selectedTape.id);
         const prevIndex = (currentIndex - 1 + tapes.length) % tapes.length;
-        // Don't modify the tapes array order! Just select the new one.
-        handleSelectTape(tapes[prevIndex]);
+        if (tapes[prevIndex]) handleSelectTape(tapes[prevIndex]);
     };
+
+    const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!audioRef.current || !duration) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const pos = (e.clientX - rect.left) / rect.width;
+        audioRef.current.currentTime = pos * duration;
+    };
+
+    // Update audio volume
+    useEffect(() => {
+        if (audioRef.current) {
+            const normalized = (volumeRotation + 135) / 270;
+            audioRef.current.volume = Math.max(0, Math.min(1, normalized));
+        }
+    }, [volumeRotation, selectedTape]);
+
+    // Audio Hooks
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio) return;
+
+        const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
+        const handleLoadedMetadata = () => setDuration(audio.duration);
+        const handleEnded = () => {
+            setPlayerState('ready');
+            setCurrentTime(0);
+        };
+
+        audio.addEventListener('timeupdate', handleTimeUpdate);
+        audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+        audio.addEventListener('ended', handleEnded);
+
+        return () => {
+            audio.removeEventListener('timeupdate', handleTimeUpdate);
+            audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            audio.removeEventListener('ended', handleEnded);
+        };
+    }, [selectedTape]);
 
     // Auto-progress inserting state
     useEffect(() => {
@@ -296,9 +325,9 @@ export default function Dashboard() {
                 </div>
 
                 <div className="flex items-center gap-6 pointer-events-auto">
-                    <Link to="/pricing" className="bg-[#111]/80 backdrop-blur-md border border-white/5 px-5 py-2.5 rounded-full flex items-center gap-2 hover:bg-[#1a1a1a] hover:border-orange-500/30 transition-all shadow-glass">
-                        <Coins className="w-4 h-4 text-orange-400" />
-                        <span className="font-bold text-sm text-[#fdfbf7]">{credits} CRDTS</span>
+                    <Link to="/pricing" className="bg-[#111]/80 backdrop-blur-md border border-white/5 py-1.5 pl-2 pr-5 rounded-full flex items-center gap-2 hover:bg-[#1a1a1a] hover:border-orange-500/30 transition-all shadow-glass">
+                        <GoldCoin className="w-7 h-7" />
+                        <span className="font-bold text-sm text-[#fdfbf7]">{credits}</span>
                     </Link>
                     <button
                         onClick={openNewTapeModal}
@@ -319,7 +348,9 @@ export default function Dashboard() {
                 <div className="w-[45%] max-w-[480px] h-[80%] flex flex-col relative select-none">
                     <div className="mb-4 flex items-center justify-between px-2">
                         <h2 className="text-sm font-display font-black tracking-widest text-[#fdfbf7]/60 uppercase drop-shadow">Tape Collection</h2>
-                        <span className="text-xs font-mono font-bold text-orange-500 bg-orange-500/10 px-2 py-1 rounded">{tapes.length} / 40</span>
+                        <span className="text-xs font-mono font-bold text-orange-500 bg-orange-500/10 px-2 py-1 rounded">
+                            {tapes.length} / {isPro ? 39 : 26}
+                        </span>
                     </div>
 
                     <div className="flex-1 w-full bg-[#111] flex flex-col rounded-xl border-2 border-[#1a1a1a] shadow-[inset_0_10px_20px_rgba(0,0,0,0.8),0_10px_30px_rgba(0,0,0,0.5)] p-4 px-6 relative z-50">
@@ -338,15 +369,22 @@ export default function Dashboard() {
 
                                         {/* Tapes in this row (up to 13) */}
                                         {Array.from({ length: 13 }).map((_, colIndex) => {
+                                            const slotKey = rowIndex * 13 + colIndex;
+                                            const isLocked = !isPro && rowIndex === 2;
                                             const tape = tapesInRow[colIndex];
-                                            // Empty slot or currently playing tape
-                                            if (!tape) return <div key={colIndex} className="w-[7.5%] h-[95%] opacity-0 pointer-events-none flex-shrink-0" />;
+
+                                            if (isLocked) {
+                                                return <div key={slotKey} className="w-[7.5%] h-[95%] opacity-0 pointer-events-none flex-shrink-0" />;
+                                            }
+
+                                            // Empty slot
+                                            if (!tape) return <div key={slotKey} className="w-[7.5%] h-[95%] opacity-0 pointer-events-none flex-shrink-0" />;
 
                                             const isPlaying = selectedTape?.id === tape.id;
 
                                             return (
                                                 <button
-                                                    key={tape.id}
+                                                    key={slotKey}
                                                     onClick={() => handleSelectTape(tape)}
                                                     onContextMenu={(e) => { e.preventDefault(); openEditModal(tape); }}
                                                     className={`group relative h-[100%] w-[7.5%] flex-shrink-0 flex justify-center bg-gradient-to-b from-[#222] to-[#1a1a1a] border border-[#333] border-b-[#050505] rounded-[2px] shadow-[2px_0_4px_rgba(0,0,0,0.6)] transition-all duration-300 origin-bottom ${isPlaying ? 'opacity-0 pointer-events-none' : 'hover:-translate-y-2 hover:scale-[1.10] hover:z-[60] hover:shadow-[0_20px_40px_rgba(0,0,0,0.9)]'}`}
@@ -361,7 +399,7 @@ export default function Dashboard() {
                                                     <span className="font-mono text-[9px] font-bold text-white/80 tracking-widest uppercase truncate drop-shadow transform -rotate-90 whitespace-nowrap absolute" style={{ bottom: '40%', width: '100px', transformOrigin: 'center' }}>{tape.name}</span>
 
                                                     {/* HOVER REVEAL: Full Cassette Face popping OUT and scaling UP */}
-                                                    <div className="absolute bottom-[110%] left-1/2 -translate-x-1/2 w-[260px] h-[165px] group-hover:pointer-events-auto opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 z-[100] origin-bottom delay-75 drop-shadow-[0_20px_40px_rgba(0,0,0,1)] flex items-center justify-center">
+                                                    <div className="absolute bottom-[110%] left-1/2 -translate-x-1/2 w-[260px] h-[165px] pointer-events-none group-hover:pointer-events-auto opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 z-[100] origin-bottom delay-75 drop-shadow-[0_20px_40px_rgba(0,0,0,1)] flex items-center justify-center">
                                                         <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#2a2a2a] rotate-45 border-b-2 border-r-2 border-[#1a1a1a] z-0 pointer-events-none" />
 
                                                         {/* EDIT BUTTON hint */}
@@ -382,6 +420,22 @@ export default function Dashboard() {
                                     </div>
                                 );
                             })}
+
+                            {/* Pro Lock Overlay for 3rd Row */}
+                            {!isPro && (
+                                <div className="absolute bottom-4 left-4 right-4 h-[28%] bg-black/60 backdrop-blur-sm border border-orange-500/30 rounded-lg z-[60] flex flex-col items-center justify-center p-4">
+                                    <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center mb-2">
+                                        <svg className="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="font-display font-black text-white text-lg tracking-widest uppercase mb-1">Row Locked</h3>
+                                    <p className="text-[9px] font-mono tracking-widest text-white/50 uppercase text-center mb-4">Pro Plan required to stash 13 more tapes</p>
+                                    <Link to="/pricing" className="bg-orange-500 hover:bg-orange-400 text-black px-6 py-2 rounded-full font-bold text-xs font-mono uppercase tracking-widest transition-colors shadow-[0_0_15px_rgba(255,100,0,0.4)] pointer-events-auto">
+                                        Unlock Now
+                                    </Link>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -494,19 +548,35 @@ export default function Dashboard() {
                                 </div>
 
                                 {/* Playback Controls (Moved Below Deck) */}
-                                <div className="h-[20%] bg-[#1a1a1a] rounded shadow-[0_4px_10px_rgba(0,0,0,0.5)] border-[3px] border-[#0a0a0a] flex items-center justify-center p-2 gap-2 relative z-10">
-                                    <button onClick={handlePrev} className="flex-1 h-full bg-gradient-to-b from-[#2a2a2a] to-[#111] border-[1.5px] border-[#444] border-b-black rounded shadow-[0_4px_6px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.1)] active:translate-y-[2px] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] transition-all flex items-center justify-center group">
-                                        <Rewind className="w-5 h-5 text-white/50 group-hover:text-white transition-colors" />
-                                    </button>
-                                    <button onClick={togglePlay} className={`flex-[1.5] h-full bg-gradient-to-b from-[#2a2a2a] to-[#111] border-[1.5px] border-[#444] border-b-black rounded shadow-[0_4px_6px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.1)] active:translate-y-[2px] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] transition-all flex items-center justify-center group ${playerState === 'playing' ? 'bg-gradient-to-b from-[#111] to-[#000] translate-y-[2px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] border-[#000]' : ''}`}>
-                                        {playerState === 'playing' ? <Pause className="w-6 h-6 text-orange-500 drop-shadow-[0_0_8px_rgba(255,85,0,0.8)]" fill="currentColor" /> : <Play className="w-6 h-6 text-white/50 group-hover:text-white transition-colors" fill="currentColor" />}
-                                    </button>
-                                    <button onClick={handleNext} className="flex-1 h-full bg-gradient-to-b from-[#2a2a2a] to-[#111] border-[1.5px] border-[#444] border-b-black rounded shadow-[0_4px_6px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.1)] active:translate-y-[2px] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] transition-all flex items-center justify-center group">
-                                        <FastForward className="w-5 h-5 text-white/50 group-hover:text-white transition-colors" />
-                                    </button>
-                                    <button onClick={handleEject} className={`flex-[1.2] h-full bg-gradient-to-b from-[#2a2a2a] to-[#111] border-[1.5px] border-[#444] border-b-black rounded shadow-[0_4px_6px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.1)] active:translate-y-[2px] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] transition-all flex items-center justify-center group ${playerState === 'ejecting' ? 'bg-[#000] translate-y-[2px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] border-black' : ''}`}>
-                                        <Square className="w-5 h-5 text-red-500/80 group-hover:text-red-500 transition-colors" fill="currentColor" />
-                                    </button>
+                                <div className="h-[25%] bg-[#1a1a1a] rounded shadow-[0_4px_10px_rgba(0,0,0,0.5)] border-[3px] border-[#0a0a0a] flex flex-col p-2 gap-1.5 relative z-10 w-full">
+                                    {/* Progress track */}
+                                    <div className="w-full flex items-center gap-2">
+                                        <span className="text-[7px] font-mono text-white/50 w-6 text-right">
+                                            {Math.floor(currentTime / 60)}:{(Math.floor(currentTime % 60)).toString().padStart(2, '0')}
+                                        </span>
+                                        <div className="flex-1 h-1.5 bg-[#0a0a0a] rounded-full overflow-hidden border border-[#222] shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)] relative cursor-pointer group" onClick={handleProgressClick}>
+                                            <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            <div className="absolute top-0 bottom-0 left-0 bg-orange-500 shadow-[0_0_8px_rgba(255,85,0,0.8)] transition-all duration-100 ease-linear pointer-events-none" style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }} />
+                                        </div>
+                                        <span className="text-[7px] font-mono text-white/50 w-6">
+                                            {Math.floor(duration / 60)}:{(Math.floor(duration % 60)).toString().padStart(2, '0')}
+                                        </span>
+                                    </div>
+                                    {/* Buttons */}
+                                    <div className="w-full flex-1 flex items-center justify-center gap-2">
+                                        <button onClick={handlePrev} className="flex-1 h-full bg-gradient-to-b from-[#2a2a2a] to-[#111] border-[1.5px] border-[#444] border-b-black rounded shadow-[0_4px_6px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.1)] active:translate-y-[2px] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] transition-all flex items-center justify-center group">
+                                            <SkipBack className="w-5 h-5 text-white/50 group-hover:text-white transition-colors" />
+                                        </button>
+                                        <button onClick={handlePlayPause} className={`flex-[1.5] h-full bg-gradient-to-b from-[#2a2a2a] to-[#111] border-[1.5px] border-[#444] border-b-black rounded shadow-[0_4px_6px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.1)] active:translate-y-[2px] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] transition-all flex items-center justify-center group ${playerState === 'playing' ? 'bg-gradient-to-b from-[#111] to-[#000] translate-y-[2px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] border-[#000]' : ''}`}>
+                                            {playerState === 'playing' ? <Pause className="w-6 h-6 text-orange-500 drop-shadow-[0_0_8px_rgba(255,85,0,0.8)]" fill="currentColor" /> : <Play className="w-6 h-6 text-white/50 group-hover:text-white transition-colors" fill="currentColor" />}
+                                        </button>
+                                        <button onClick={handleNext} className="flex-1 h-full bg-gradient-to-b from-[#2a2a2a] to-[#111] border-[1.5px] border-[#444] border-b-black rounded shadow-[0_4px_6px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.1)] active:translate-y-[2px] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] transition-all flex items-center justify-center group">
+                                            <SkipForward className="w-5 h-5 text-white/50 group-hover:text-white transition-colors" />
+                                        </button>
+                                        <button onClick={handleEject} className={`flex-[1.2] h-full bg-gradient-to-b from-[#2a2a2a] to-[#111] border-[1.5px] border-[#444] border-b-black rounded shadow-[0_4px_6px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.1)] active:translate-y-[2px] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] transition-all flex items-center justify-center group ${playerState === 'ejecting' ? 'bg-[#000] translate-y-[2px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] border-black' : ''}`}>
+                                            <Square className="w-5 h-5 text-red-500/80 group-hover:text-red-500 transition-colors" fill="currentColor" />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -546,7 +616,12 @@ export default function Dashboard() {
                                         <div className="w-8 h-8 rounded-full bg-[#111] shadow-[0_4px_10px_rgba(0,0,0,0.9)]" />
                                     </div>
 
-                                    {/* Outer Grates */}
+                                    {/* Hidden Audio Element */}
+                                    {selectedTape && selectedTape.audioUrl && (
+                                        <audio ref={audioRef} src={selectedTape.audioUrl} preload="metadata" />
+                                    )}
+
+                                    {/* Cassette Slot & Cover */}
                                     <div className="w-full h-full z-10 flex flex-col justify-between">
                                         {/* Horizontal Slats */}
                                         {Array.from({ length: 9 }).map((_, i) => (
@@ -570,22 +645,27 @@ export default function Dashboard() {
                             <motion.div
                                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                                 className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
-                                onClick={() => { setShowTapeModal(false); setEditingTapeId(null); }}
+                                onClick={() => { setShowTapeModal(false); setEditingTapeId(null); setIsDeleting(false); }}
                             >
                                 <motion.form
                                     initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 30 }}
                                     className="relative flex flex-col items-center gap-6"
                                     onClick={(e) => e.stopPropagation()}
-                                    onSubmit={handleGenerate}
+                                    onSubmit={handleSaveEdit}
                                 >
-                                    <button type="button" onClick={() => { setShowTapeModal(false); setEditingTapeId(null); }} className="absolute -top-12 right-0 text-white/50 hover:text-white transition-colors bg-white/10 p-2 rounded-full">
+                                    <button type="button" onClick={() => { setShowTapeModal(false); setEditingTapeId(null); setIsDeleting(false); }} className="absolute -top-12 right-0 text-white/50 hover:text-white transition-colors bg-white/10 p-2 rounded-full">
                                         <X className="w-5 h-5" />
                                     </button>
 
                                     {/* The giant tape interface */}
                                     <div className="w-[450px] h-[280px]">
                                         <CassetteGraphic
-                                            tape={{ id: 'temp', name: newName, color: newColor, createdAt: '' }}
+                                            tape={{
+                                                id: editingTapeId || 'temp',
+                                                name: newName,
+                                                color: newColor,
+                                                createdAt: editingTapeId ? (tapes.find(t => t.id === editingTapeId)?.createdAt || '') : ''
+                                            }}
                                             isEditing={true}
                                             tempName={newName}
                                             tempColor={newColor}
@@ -594,26 +674,25 @@ export default function Dashboard() {
                                         />
                                     </div>
 
-                                    {!editingTapeId && (
-                                        <div className="w-[450px] text-left">
-                                            <h3 className="text-white/60 font-black font-display text-sm tracking-widest uppercase mb-2">Lyrics Idea</h3>
-                                            <textarea
-                                                required
-                                                value={newLyrics}
-                                                onChange={(e) => setNewLyrics(e.target.value)}
-                                                className="w-full h-32 bg-black/50 border-2 border-white/10 rounded-xl p-4 text-white placeholder-white/20 font-mono text-sm resize-none focus:outline-none focus:border-orange-500/50 shadow-inner"
-                                                placeholder="Write your verse here... e.g., 'Cruising through the neon nights...'"
-                                            />
-                                        </div>
-                                    )}
-
-                                    <button
-                                        type="submit"
-                                        disabled={!newName || (!editingTapeId && !newLyrics)}
-                                        className="w-[450px] py-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-black font-display tracking-widest uppercase rounded-xl shadow-neon transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
-                                    >
-                                        {editingTapeId ? 'Save Updates' : 'Generate Track (1 CRDT)'}
-                                    </button>
+                                    <div className="flex gap-4 w-[450px]">
+                                        <button
+                                            type="button"
+                                            onClick={handleDeleteTape}
+                                            className={`flex-1 py-4 font-black font-display tracking-widest uppercase rounded-xl transition-all shadow-[0_4px_10px_rgba(0,0,0,0.5)] active:scale-[0.98] ${isDeleting
+                                                ? 'bg-red-600 hover:bg-red-500 text-white shadow-[0_0_15px_rgba(255,0,0,0.5)]'
+                                                : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
+                                                }`}
+                                        >
+                                            {isDeleting ? 'Confirm Delete' : 'Delete Tape'}
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={!newName}
+                                            className="flex-[2] py-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-black font-display tracking-widest uppercase rounded-xl shadow-neon transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                                        >
+                                            Save Updates
+                                        </button>
+                                    </div>
                                 </motion.form>
                             </motion.div>
                         )}
