@@ -12,10 +12,12 @@ export default function Generate() {
     // Form State
     const [lyrics, setLyrics] = useState(generationState.lyrics || '');
     const [useInstruments, setUseInstruments] = useState(generationState.useInstruments ?? true);
+    const [aiEnhancedLyrics, setAiEnhancedLyrics] = useState(generationState.aiEnhancedLyrics ?? false);
 
     // Completion State
     const [name, setName] = useState('');
     const [color, setColor] = useState(STRIPE_COLORS[0]);
+    const [isPublic, setIsPublic] = useState(false);
 
     // UI State
     const [showInfo, setShowInfo] = useState(false);
@@ -25,17 +27,18 @@ export default function Generate() {
         if (generationState.status === 'generating') {
             setLyrics(generationState.lyrics);
             setUseInstruments(generationState.useInstruments);
+            setAiEnhancedLyrics(generationState.aiEnhancedLyrics);
         }
     }, [generationState]);
 
     const handleStart = () => {
         if (!lyrics.trim() || credits <= 0) return;
-        startGeneration(lyrics, useInstruments);
+        startGeneration(lyrics, useInstruments, aiEnhancedLyrics);
     };
 
     const handleSave = () => {
         if (!name.trim()) return;
-        saveGeneratedTape(name, color);
+        saveGeneratedTape(name, color, isPublic);
         navigate('/dashboard');
     };
 
@@ -103,28 +106,50 @@ export default function Generate() {
                             className="w-full flex-1 bg-transparent text-white p-6 font-mono text-xs sm:text-sm leading-relaxed resize-none focus:outline-none placeholder-white/20"
                         />
 
-                        <div className="border-t border-white/10 p-4 flex justify-between items-center bg-black/40 rounded-b-xl">
-                            <label className="flex items-center gap-3 cursor-pointer group">
-                                <input
-                                    type="checkbox"
-                                    className="hidden"
-                                    checked={useInstruments}
-                                    onChange={(e) => setUseInstruments(e.target.checked)}
-                                    disabled={generationState.status !== 'idle'}
-                                />
-                                <div className={`w-12 h-6 rounded-full transition-colors relative flex items-center ${useInstruments ? 'bg-orange-500' : 'bg-white/10'}`}>
-                                    <motion.div
-                                        className="w-4 h-4 rounded-full bg-white absolute shadow-md"
-                                        animate={{ left: useInstruments ? 'calc(100% - 20px)' : '4px' }}
-                                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                        <div className="border-t border-white/10 p-4 flex justify-between items-center bg-black/40 rounded-b-xl gap-4">
+                            <div className="flex gap-6 items-center">
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                    <input
+                                        type="checkbox"
+                                        className="hidden"
+                                        checked={useInstruments}
+                                        onChange={(e) => setUseInstruments(e.target.checked)}
+                                        disabled={generationState.status !== 'idle'}
                                     />
-                                </div>
-                                <span className={`font-mono text-xs tracking-widest uppercase transition-colors ${useInstruments ? 'text-white' : 'text-white/40'}`}>
-                                    Instruments
-                                </span>
-                            </label>
+                                    <div className={`w-12 h-6 rounded-full transition-colors relative flex items-center ${useInstruments ? 'bg-orange-500' : 'bg-white/10'}`}>
+                                        <motion.div
+                                            className="w-4 h-4 rounded-full bg-white absolute shadow-md"
+                                            animate={{ left: useInstruments ? 'calc(100% - 20px)' : '4px' }}
+                                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                        />
+                                    </div>
+                                    <span className={`font-mono text-xs tracking-widest uppercase transition-colors flex items-center gap-2 ${useInstruments ? 'text-white' : 'text-white/40'}`}>
+                                        Instruments
+                                        <Mic2 className={`w-4 h-4 ${useInstruments ? 'text-orange-500' : 'text-white/20'}`} />
+                                    </span>
+                                </label>
 
-                            <Mic2 className={`w-5 h-5 ${useInstruments ? 'text-orange-500' : 'text-white/20'}`} />
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                    <input
+                                        type="checkbox"
+                                        className="hidden"
+                                        checked={aiEnhancedLyrics}
+                                        onChange={(e) => setAiEnhancedLyrics(e.target.checked)}
+                                        disabled={generationState.status !== 'idle'}
+                                    />
+                                    <div className={`w-12 h-6 rounded-full transition-colors relative flex items-center ${aiEnhancedLyrics ? 'bg-orange-500' : 'bg-white/10'}`}>
+                                        <motion.div
+                                            className="w-4 h-4 rounded-full bg-white absolute shadow-md"
+                                            animate={{ left: aiEnhancedLyrics ? 'calc(100% - 20px)' : '4px' }}
+                                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                        />
+                                    </div>
+                                    <span className={`font-mono text-xs tracking-widest uppercase transition-colors flex items-center gap-2 ${aiEnhancedLyrics ? 'text-white' : 'text-white/40'}`}>
+                                        AI Enhanced Lyrics
+                                        <Wand2 className={`w-4 h-4 ${aiEnhancedLyrics ? 'text-orange-500' : 'text-white/20'}`} />
+                                    </span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -258,6 +283,27 @@ export default function Generate() {
                                             />
                                         ))}
                                     </div>
+                                </div>
+                                <div>
+                                    <label className="block font-mono text-xs text-white/50 mb-2 uppercase tracking-widest">Visibility</label>
+                                    <label className="flex items-center gap-3 cursor-pointer group w-max">
+                                        <input
+                                            type="checkbox"
+                                            className="hidden"
+                                            checked={isPublic}
+                                            onChange={(e) => setIsPublic(e.target.checked)}
+                                        />
+                                        <div className={`w-12 h-6 rounded-full transition-colors relative flex items-center ${isPublic ? 'bg-orange-500' : 'bg-white/10'}`}>
+                                            <motion.div
+                                                className="w-4 h-4 rounded-full bg-white absolute shadow-md"
+                                                animate={{ left: isPublic ? 'calc(100% - 20px)' : '4px' }}
+                                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                            />
+                                        </div>
+                                        <span className={`font-mono text-xs tracking-widest uppercase transition-colors ${isPublic ? 'text-white' : 'text-white/40'}`}>
+                                            {isPublic ? 'Public' : 'Private'}
+                                        </span>
+                                    </label>
                                 </div>
                             </div>
 

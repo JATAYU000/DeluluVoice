@@ -117,10 +117,13 @@ function CassetteGraphic({ tape, className = "", isEditing, tempName, tempColor,
 }
 
 export default function Dashboard() {
-    const { tapes, credits, isPro, updateTape, deleteTape } = useTape();
+    const { inventory, publicRecords, credits, isPro, updateTape, deleteTape, addToInventory } = useTape();
     const navigate = useNavigate();
     const [showTapeModal, setShowTapeModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [activeTab, setActiveTab] = useState<'inventory' | 'public'>('inventory');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
 
     // The tape currently selected to be played or playing
     const [selectedTape, setSelectedTape] = useState<Cassette | null>(null);
@@ -150,12 +153,14 @@ export default function Dashboard() {
     // Rename Modal State
     const [newName, setNewName] = useState('');
     const [newColor, setNewColor] = useState(STRIPE_COLORS[0]);
+    const [isPublicEdit, setIsPublicEdit] = useState(false);
     const [editingTapeId, setEditingTapeId] = useState<string | null>(null);
 
     const openEditModal = (tape: Cassette) => {
         setEditingTapeId(tape.id);
         setNewName(tape.name);
         setNewColor(tape.color);
+        setIsPublicEdit(tape.isPublic || false);
         setShowTapeModal(true);
         setIsDeleting(false);
     };
@@ -164,15 +169,16 @@ export default function Dashboard() {
         e.preventDefault();
         if (!editingTapeId || !newName.trim()) return;
 
-        updateTape(editingTapeId, { name: newName, color: newColor });
+        updateTape(editingTapeId, { name: newName, color: newColor, isPublic: isPublicEdit });
         if (selectedTape?.id === editingTapeId) {
-            setSelectedTape(prev => prev ? { ...prev, name: newName, color: newColor } : prev);
+            setSelectedTape(prev => prev ? { ...prev, name: newName, color: newColor, isPublic: isPublicEdit } : prev);
         }
 
         setShowTapeModal(false);
         setEditingTapeId(null);
         setNewName('');
         setNewColor(STRIPE_COLORS[0]);
+        setIsPublicEdit(false);
         setIsDeleting(false);
     };
 
@@ -247,16 +253,18 @@ export default function Dashboard() {
 
     const handleNext = () => {
         if (!selectedTape || playerState === 'inserting' || playerState === 'ejecting') return;
-        const currentIndex = tapes.findIndex(t => t.id === selectedTape.id);
-        const nextIndex = (currentIndex + 1) % tapes.length;
-        if (tapes[nextIndex]) handleSelectTape(tapes[nextIndex]);
+        const currentList = publicRecords.find(t => t.id === selectedTape.id) ? publicRecords : inventory;
+        const currentIndex = currentList.findIndex(t => t.id === selectedTape.id);
+        const nextIndex = (currentIndex + 1) % currentList.length;
+        if (currentList[nextIndex]) handleSelectTape(currentList[nextIndex]);
     };
 
     const handlePrev = () => {
         if (!selectedTape || playerState === 'inserting' || playerState === 'ejecting') return;
-        const currentIndex = tapes.findIndex(t => t.id === selectedTape.id);
-        const prevIndex = (currentIndex - 1 + tapes.length) % tapes.length;
-        if (tapes[prevIndex]) handleSelectTape(tapes[prevIndex]);
+        const currentList = publicRecords.find(t => t.id === selectedTape.id) ? publicRecords : inventory;
+        const currentIndex = currentList.findIndex(t => t.id === selectedTape.id);
+        const prevIndex = (currentIndex - 1 + currentList.length) % currentList.length;
+        if (currentList[prevIndex]) handleSelectTape(currentList[prevIndex]);
     };
 
     const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -344,99 +352,137 @@ export default function Dashboard() {
             {/* MAIN 2D LAYOUT */}
             <div className="flex flex-1 pt-24 pb-12 px-10 gap-20 h-full z-10 relative items-center justify-center">
 
-                {/* LEFT COLUMN: 5x8 BOOK-STYLE SHELF */}
-                <div className="w-[45%] max-w-[480px] h-[80%] flex flex-col relative select-none">
+                {/* LEFT COLUMN */}
+                <div className="w-[48%] max-w-[540px] h-[95%] flex flex-col relative select-none">
                     <div className="mb-4 flex items-center justify-between px-2">
-                        <h2 className="text-sm font-display font-black tracking-widest text-[#fdfbf7]/60 uppercase drop-shadow">Tape Collection</h2>
-                        <span className="text-xs font-mono font-bold text-orange-500 bg-orange-500/10 px-2 py-1 rounded">
-                            {tapes.length} / {isPro ? 39 : 26}
-                        </span>
+                        <div className="flex gap-6">
+                            <button onClick={() => setActiveTab('inventory')} className={`text-sm font-display font-black tracking-widest uppercase drop-shadow transition-colors ${activeTab === 'inventory' ? 'text-orange-500' : 'text-[#fdfbf7]/40 hover:text-white'}`}>Inventory</button>
+                            <button onClick={() => setActiveTab('public')} className={`text-sm font-display font-black tracking-widest uppercase drop-shadow transition-colors ${activeTab === 'public' ? 'text-orange-500' : 'text-[#fdfbf7]/40 hover:text-white'}`}>Public Records</button>
+                        </div>
+                        {activeTab === 'inventory' && (
+                            <span className="text-xs font-mono font-bold text-orange-500 bg-orange-500/10 px-2 py-1 rounded">
+                                {inventory.length} / {isPro ? 39 : 26}
+                            </span>
+                        )}
                     </div>
 
-                    <div className="flex-1 w-full bg-[#111] flex flex-col rounded-xl border-2 border-[#1a1a1a] shadow-[inset_0_10px_20px_rgba(0,0,0,0.8),0_10px_30px_rgba(0,0,0,0.5)] p-4 px-6 relative z-50">
+                    <div className="flex-1 w-full bg-[#111] flex flex-col rounded-xl border-2 border-[#1a1a1a] shadow-[inset_0_10px_20px_rgba(0,0,0,0.8),0_10px_30px_rgba(0,0,0,0.5)] p-4 px-6 relative z-50 overflow-hidden">
                         {/* The dark inner cavity of the shelf */}
                         <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-[#050505] pointer-events-none rounded-xl" />
 
-                        {/* 3 Rows for the Shelf */}
-                        <div className="flex flex-col h-full gap-4 relative justify-around">
-                            {Array.from({ length: 3 }).map((_, rowIndex) => {
-                                const tapesInRow = tapes.slice(rowIndex * 13, (rowIndex + 1) * 13);
+                        {activeTab === 'inventory' ? (
+                            <div className="flex flex-col h-full gap-4 relative justify-around">
+                                {Array.from({ length: 3 }).map((_, rowIndex) => {
+                                    const tapesInRow = inventory.slice(rowIndex * 13, (rowIndex + 1) * 13);
 
-                                return (
-                                    <div key={rowIndex} className="flex-1 border-b-[6px] border-[#222] shadow-[0_4px_10px_rgba(0,0,0,1)] relative flex items-end pb-1 gap-1">
-                                        {/* Physical wood/plastic shelf row edge */}
-                                        <div className="absolute -bottom-[6px] left-[-24px] right-[-24px] h-[6px] bg-[#1a1a1a] border-t border-white/5 shadow-[0_4px_6px_rgba(0,0,0,0.8)] z-[-1]" />
+                                    return (
+                                        <div key={rowIndex} className="flex-1 border-b-[6px] border-[#222] shadow-[0_4px_10px_rgba(0,0,0,1)] relative flex items-end pb-1 gap-1">
+                                            {/* Physical wood/plastic shelf row edge */}
+                                            <div className="absolute -bottom-[6px] left-[-24px] right-[-24px] h-[6px] bg-[#1a1a1a] border-t border-white/5 shadow-[0_4px_6px_rgba(0,0,0,0.8)] z-[-1]" />
 
-                                        {/* Tapes in this row (up to 13) */}
-                                        {Array.from({ length: 13 }).map((_, colIndex) => {
-                                            const slotKey = rowIndex * 13 + colIndex;
-                                            const isLocked = !isPro && rowIndex === 2;
-                                            const tape = tapesInRow[colIndex];
+                                            {/* Tapes in this row (up to 13) */}
+                                            {Array.from({ length: 13 }).map((_, colIndex) => {
+                                                const slotKey = rowIndex * 13 + colIndex;
+                                                const isLocked = !isPro && rowIndex === 2;
+                                                const tape = tapesInRow[colIndex];
 
-                                            if (isLocked) {
-                                                return <div key={slotKey} className="w-[7.5%] h-[95%] opacity-0 pointer-events-none flex-shrink-0" />;
-                                            }
+                                                if (isLocked) {
+                                                    return <div key={slotKey} className="w-[7.5%] h-[95%] opacity-0 pointer-events-none flex-shrink-0" />;
+                                                }
 
-                                            // Empty slot
-                                            if (!tape) return <div key={slotKey} className="w-[7.5%] h-[95%] opacity-0 pointer-events-none flex-shrink-0" />;
+                                                // Empty slot
+                                                if (!tape) return <div key={slotKey} className="w-[7.5%] h-[95%] opacity-0 pointer-events-none flex-shrink-0" />;
 
-                                            const isPlaying = selectedTape?.id === tape.id;
+                                                const isPlaying = selectedTape?.id === tape.id;
 
-                                            return (
-                                                <button
-                                                    key={slotKey}
-                                                    onClick={() => handleSelectTape(tape)}
-                                                    onContextMenu={(e) => { e.preventDefault(); openEditModal(tape); }}
-                                                    className={`group relative h-[100%] w-[7.5%] flex-shrink-0 flex justify-center bg-gradient-to-b from-[#222] to-[#1a1a1a] border border-[#333] border-b-[#050505] rounded-[2px] shadow-[2px_0_4px_rgba(0,0,0,0.6)] transition-all duration-300 origin-bottom ${isPlaying ? 'opacity-0 pointer-events-none' : 'hover:-translate-y-2 hover:scale-[1.10] hover:z-[60] hover:shadow-[0_20px_40px_rgba(0,0,0,0.9)]'}`}
-                                                >
-                                                    {/* Spine Color Indicator */}
-                                                    <div className="absolute top-1 inset-x-1 h-3 rounded-[1px] opacity-90 border-b border-[#000]/30 shadow-[inset_0_2px_4px_rgba(255,255,255,0.2)]" style={{ background: tape.color }} />
+                                                return (
+                                                    <button
+                                                        key={slotKey}
+                                                        onClick={() => handleSelectTape(tape)}
+                                                        onContextMenu={(e) => { e.preventDefault(); openEditModal(tape); }}
+                                                        className={`group relative h-[100%] w-[7.5%] flex-shrink-0 flex justify-center bg-gradient-to-b from-[#222] to-[#1a1a1a] border border-[#333] border-b-[#050505] rounded-[2px] shadow-[2px_0_4px_rgba(0,0,0,0.6)] transition-all duration-300 origin-bottom ${isPlaying ? 'opacity-0 pointer-events-none' : 'hover:-translate-y-2 hover:scale-[1.10] hover:z-[60] hover:shadow-[0_20px_40px_rgba(0,0,0,0.9)]'}`}
+                                                    >
+                                                        {/* Spine Color Indicator */}
+                                                        <div className="absolute top-1 inset-x-1 h-3 rounded-[1px] opacity-90 border-b border-[#000]/30 shadow-[inset_0_2px_4px_rgba(255,255,255,0.2)]" style={{ background: tape.color }} />
 
-                                                    {/* Spine Screw Detail */}
-                                                    <div className="absolute top-6 w-1.5 h-1.5 rounded-full bg-black shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]" />
+                                                        {/* Spine Screw Detail */}
+                                                        <div className="absolute top-6 w-1.5 h-1.5 rounded-full bg-black shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]" />
 
-                                                    {/* Spine Text (Vertical) */}
-                                                    <span className="font-mono text-[9px] font-bold text-white/80 tracking-widest uppercase truncate drop-shadow transform -rotate-90 whitespace-nowrap absolute" style={{ bottom: '40%', width: '100px', transformOrigin: 'center' }}>{tape.name}</span>
+                                                        {/* Spine Text (Vertical) */}
+                                                        <span className="font-mono text-[9px] font-bold text-white/80 tracking-widest uppercase truncate drop-shadow transform -rotate-90 whitespace-nowrap absolute" style={{ bottom: '40%', width: '100px', transformOrigin: 'center' }}>{tape.name}</span>
 
-                                                    {/* HOVER REVEAL: Full Cassette Face popping OUT and scaling UP */}
-                                                    <div className="absolute bottom-[110%] left-1/2 -translate-x-1/2 w-[260px] h-[165px] pointer-events-none group-hover:pointer-events-auto opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 z-[100] origin-bottom delay-75 drop-shadow-[0_20px_40px_rgba(0,0,0,1)] flex items-center justify-center">
-                                                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#2a2a2a] rotate-45 border-b-2 border-r-2 border-[#1a1a1a] z-0 pointer-events-none" />
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })}
 
-                                                        {/* EDIT BUTTON hint */}
-                                                        <div className="absolute -top-6 text-[8px] font-mono text-white/40 uppercase tracking-widest whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity delay-300">
-                                                            Right-click to Edit
-                                                        </div>
-
-                                                        {/* Animated Layout Wrapper for Tape */}
-                                                        {(!isPlaying || playerState === 'ejecting') && (
-                                                            <div className="w-full h-full z-10 relative pointer-events-none transition-transform">
-                                                                <CassetteGraphic tape={tape} />
-                                                            </div>
-                                                        )}
+                                {/* Pro Lock Overlay for 3rd Row */}
+                                {!isPro && (
+                                    <div className="absolute bottom-4 left-4 right-4 h-[28%] bg-black/60 backdrop-blur-sm border border-orange-500/30 rounded-lg z-[60] flex flex-col items-center justify-center p-4">
+                                        <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center mb-2">
+                                            <svg className="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="font-display font-black text-white text-lg tracking-widest uppercase mb-1">Row Locked</h3>
+                                        <p className="text-[9px] font-mono tracking-widest text-white/50 uppercase text-center mb-4">Pro Plan required to stash 13 more tapes</p>
+                                        <Link to="/pricing" className="bg-orange-500 hover:bg-orange-400 text-black px-6 py-2 rounded-full font-bold text-xs font-mono uppercase tracking-widest transition-colors shadow-[0_0_15px_rgba(255,100,0,0.4)] pointer-events-auto">
+                                            Unlock Now
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="flex flex-col h-full relative z-10 w-full pt-2">
+                                <input
+                                    type="text"
+                                    placeholder="Search public records..."
+                                    value={searchQuery}
+                                    onChange={(e) => {
+                                        setSearchQuery(e.target.value);
+                                        setIsSearching(true);
+                                        setTimeout(() => setIsSearching(false), 500);
+                                    }}
+                                    className="w-full bg-black/40 border border-white/10 rounded px-4 py-3 text-sm font-mono text-white focus:outline-none focus:border-orange-500 mb-6 transition-colors shadow-inner"
+                                />
+                                {isSearching ? (
+                                    <div className="flex-1 flex flex-col items-center justify-center font-mono text-xs text-orange-500 animate-pulse uppercase tracking-widest gap-4">
+                                        <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                                        Searching Databanks...
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 overflow-y-auto pr-3 space-y-3 pb-4">
+                                        {publicRecords.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase())).map((tape) => (
+                                            <div key={tape.id} className={`w-full bg-[#1a1a1a] border border-[#333] rounded-lg p-4 flex items-center justify-between hover:border-orange-500/50 transition-colors ${selectedTape?.id === tape.id ? 'border-orange-500 bg-orange-500/5' : ''}`}>
+                                                <div className="flex items-center gap-4 overflow-hidden">
+                                                    <div className="w-1.5 h-8 rounded-full" style={{ background: tape.color }} />
+                                                    <div className="flex flex-col overflow-hidden">
+                                                        <span className="font-display font-black text-base truncate">{tape.name}</span>
+                                                        <span className="font-mono text-[10px] text-white/40">{new Date(tape.createdAt).toLocaleDateString()}</span>
                                                     </div>
-                                                </button>
-                                            );
-                                        })}
+                                                </div>
+                                                <div className="flex gap-2 shrink-0">
+                                                    <button onClick={() => handleSelectTape(tape)} className="w-10 h-10 rounded-full bg-black flex items-center justify-center hover:scale-110 transition-transform shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)] border border-[#333]">
+                                                        <Play className="w-4 h-4 text-orange-500 ml-0.5" fill="currentColor" />
+                                                    </button>
+                                                    <button onClick={() => addToInventory(tape)} className="w-10 h-10 rounded-full bg-black flex items-center justify-center hover:scale-110 transition-transform shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)] border border-[#333]" title="Add to Inventory">
+                                                        <Plus className="w-5 h-5 text-white/50 hover:text-white" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {publicRecords.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                                            <div className="text-center font-mono text-xs text-white/30 mt-12 flex flex-col items-center gap-2">
+                                                <Mic2 className="w-6 h-6 text-white/10" />
+                                                No records found
+                                            </div>
+                                        )}
                                     </div>
-                                );
-                            })}
-
-                            {/* Pro Lock Overlay for 3rd Row */}
-                            {!isPro && (
-                                <div className="absolute bottom-4 left-4 right-4 h-[28%] bg-black/60 backdrop-blur-sm border border-orange-500/30 rounded-lg z-[60] flex flex-col items-center justify-center p-4">
-                                    <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center mb-2">
-                                        <svg className="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                        </svg>
-                                    </div>
-                                    <h3 className="font-display font-black text-white text-lg tracking-widest uppercase mb-1">Row Locked</h3>
-                                    <p className="text-[9px] font-mono tracking-widest text-white/50 uppercase text-center mb-4">Pro Plan required to stash 13 more tapes</p>
-                                    <Link to="/pricing" className="bg-orange-500 hover:bg-orange-400 text-black px-6 py-2 rounded-full font-bold text-xs font-mono uppercase tracking-widest transition-colors shadow-[0_0_15px_rgba(255,100,0,0.4)] pointer-events-auto">
-                                        Unlock Now
-                                    </Link>
-                                </div>
-                            )}
-                        </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -664,7 +710,7 @@ export default function Dashboard() {
                                                 id: editingTapeId || 'temp',
                                                 name: newName,
                                                 color: newColor,
-                                                createdAt: editingTapeId ? (tapes.find(t => t.id === editingTapeId)?.createdAt || '') : ''
+                                                createdAt: editingTapeId ? (inventory.find(t => t.id === editingTapeId)?.createdAt || '') : ''
                                             }}
                                             isEditing={true}
                                             tempName={newName}
@@ -674,24 +720,46 @@ export default function Dashboard() {
                                         />
                                     </div>
 
-                                    <div className="flex gap-4 w-[450px]">
-                                        <button
-                                            type="button"
-                                            onClick={handleDeleteTape}
-                                            className={`flex-1 py-4 font-black font-display tracking-widest uppercase rounded-xl transition-all shadow-[0_4px_10px_rgba(0,0,0,0.5)] active:scale-[0.98] ${isDeleting
-                                                ? 'bg-red-600 hover:bg-red-500 text-white shadow-[0_0_15px_rgba(255,0,0,0.5)]'
-                                                : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
-                                                }`}
-                                        >
-                                            {isDeleting ? 'Confirm Delete' : 'Delete Tape'}
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            disabled={!newName}
-                                            className="flex-[2] py-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-black font-display tracking-widest uppercase rounded-xl shadow-neon transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
-                                        >
-                                            Save Updates
-                                        </button>
+                                    <div className="flex flex-col gap-4 w-[450px]">
+                                        <div className="flex justify-center mb-2">
+                                            <label className="flex items-center gap-3 cursor-pointer group">
+                                                <input
+                                                    type="checkbox"
+                                                    className="hidden"
+                                                    checked={isPublicEdit}
+                                                    onChange={(e) => setIsPublicEdit(e.target.checked)}
+                                                />
+                                                <div className={`w-12 h-6 rounded-full transition-colors relative flex items-center ${isPublicEdit ? 'bg-orange-500' : 'bg-white/10'}`}>
+                                                    <motion.div
+                                                        className="w-4 h-4 rounded-full bg-white absolute shadow-md"
+                                                        animate={{ left: isPublicEdit ? 'calc(100% - 20px)' : '4px' }}
+                                                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                                    />
+                                                </div>
+                                                <span className={`font-mono text-xs tracking-widest uppercase transition-colors ${isPublicEdit ? 'text-white' : 'text-white/40'}`}>
+                                                    {isPublicEdit ? 'Public' : 'Private'}
+                                                </span>
+                                            </label>
+                                        </div>
+                                        <div className="flex gap-4 w-full">
+                                            <button
+                                                type="button"
+                                                onClick={handleDeleteTape}
+                                                className={`flex-1 py-4 font-black font-display tracking-widest uppercase rounded-xl transition-all shadow-[0_4px_10px_rgba(0,0,0,0.5)] active:scale-[0.98] ${isDeleting
+                                                    ? 'bg-red-600 hover:bg-red-500 text-white shadow-[0_0_15px_rgba(255,0,0,0.5)]'
+                                                    : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
+                                                    }`}
+                                            >
+                                                {isDeleting ? 'Confirm Delete' : 'Delete Tape'}
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={!newName}
+                                                className="flex-[2] py-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-black font-display tracking-widest uppercase rounded-xl shadow-neon transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                                            >
+                                                Save Updates
+                                            </button>
+                                        </div>
                                     </div>
                                 </motion.form>
                             </motion.div>
