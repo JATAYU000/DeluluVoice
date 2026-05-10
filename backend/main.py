@@ -1,11 +1,13 @@
 import os
 import uuid
+from typing import Optional
 
 import cloudinary
 import cloudinary.uploader
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from pymongo import MongoClient
 
 load_dotenv()
@@ -86,3 +88,21 @@ async def delete_song(song_id: str):
     songs_collection.delete_one({"id": song_id})
 
     return {"message": "Deleted"}
+
+
+class TapeUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+    isPublic: Optional[bool] = None
+
+
+@app.put("/song/{song_id}")
+async def update_song(song_id: str, updates: TapeUpdate):
+
+    update_data = {k: v for k, v in updates.dict().items() if v is not None}
+
+    songs_collection.update_one({"id": song_id}, {"$set": update_data})
+
+    updated_song = songs_collection.find_one({"id": song_id}, {"_id": 0})
+
+    return updated_song

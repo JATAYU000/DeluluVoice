@@ -191,25 +191,22 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const updateTape = (id: string, updates: Partial<Cassette>) => {
-    setInventory((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+  const updateTape = async (id: string, updates: Partial<Cassette>) => {
+    const response = await fetch(`http://localhost:8000/song/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(updates),
+    });
+
+    const updatedTape = await response.json();
+
+    setInventory((prev) => prev.map((t) => (t.id === id ? updatedTape : t)));
+
+    setPublicRecords((prev) =>
+      prev.map((t) => (t.id === id ? updatedTape : t)),
     );
-    if (updates.isPublic !== undefined) {
-      const tape = inventory.find((t) => t.id === id);
-      if (tape) {
-        if (updates.isPublic) {
-          setPublicRecords((prev) => {
-            if (!prev.find((t) => t.id === id)) {
-              return [...prev, { ...tape, ...updates }];
-            }
-            return prev.map((t) => (t.id === id ? { ...t, ...updates } : t));
-          });
-        } else {
-          setPublicRecords((prev) => prev.filter((t) => t.id !== id));
-        }
-      }
-    }
   };
 
   const addToInventory = (tape: Cassette) => {
