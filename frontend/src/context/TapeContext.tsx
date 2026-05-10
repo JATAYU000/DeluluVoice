@@ -45,7 +45,7 @@ interface TapeContextType {
     name: string,
     color: string,
     isPublic: boolean,
-    file: File,
+    file?: File,
   ) => Promise<void>;
   deleteTape: (id: string) => void;
   resetGeneration: () => void;
@@ -135,10 +135,13 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
     name: string,
     color: string,
     isPublic: boolean,
-    file: File,
+    file?: File,
   ) => {
     const formData = new FormData();
-
+    if (!file) {
+      console.log("No file provided");
+      return;
+    }
     formData.append("file", file);
     formData.append("name", name);
     formData.append("color", color);
