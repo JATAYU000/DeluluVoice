@@ -1,12 +1,13 @@
-import { Routes, Route } from 'react-router-dom';
-import { TapeProvider } from './context/TapeContext';
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import Dashboard from './pages/Dashboard';
-import Pricing from './pages/Pricing';
-import Generate from './pages/Generate';
-import Checkout from './pages/Checkout';
+import { Routes, Route } from "react-router-dom";
+import { TapeProvider } from "./context/TapeContext";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import Dashboard from "./pages/Dashboard";
+import Pricing from "./pages/Pricing";
+import Generate from "./pages/Generate";
+import Checkout from "./pages/Checkout";
+import UploadSongs from "./pages/UploadSongs";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/generate" element={<Generate />} />
           <Route path="/checkout" element={<Checkout />} />
+          <Route path="/upload" element={<UploadSongs />} />
         </Routes>
       </div>
     </TapeProvider>
