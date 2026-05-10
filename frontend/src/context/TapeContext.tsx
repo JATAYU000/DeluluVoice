@@ -41,7 +41,12 @@ interface TapeContextType {
     useInstruments: boolean,
     aiEnhancedLyrics: boolean,
   ) => void;
-  saveGeneratedTape: (name: string, color: string, isPublic: boolean) => void;
+  saveGeneratedTape: (
+    name: string,
+    color: string,
+    isPublic: boolean,
+    file: File,
+  ) => Promise<void>;
   deleteTape: (id: string) => void;
   resetGeneration: () => void;
   updateTape: (id: string, updates: Partial<Cassette>) => void;
@@ -125,36 +130,6 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
   const addCredits = (amount: number) => {
     setCredits((prev) => prev + amount);
   };
-
-  // const saveGeneratedTape = (
-  //   name: string,
-  //   color: string,
-  //   isPublic: boolean,
-  // ) => {
-  //   const newTape: Cassette = {
-  //     id: Math.random().toString(36).substring(2, 10),
-  //     name,
-  //     color,
-  //     createdAt: new Date().toISOString(),
-  //     audioUrl: "/audio/dummy.mp3",
-  //     duration: 15,
-  //     isPublic,
-  //   };
-
-  //   setInventory((prev) => {
-  //     const maxTapes = isPro ? 39 : 26;
-  //     if (prev.length < maxTapes) {
-  //       return [...prev, newTape];
-  //     }
-  //     return prev;
-  //   });
-
-  //   if (isPublic) {
-  //     setPublicRecords((prev) => [...prev, newTape]);
-  //   }
-
-  //   resetGeneration();
-  // };
 
   const saveGeneratedTape = async (
     name: string,
