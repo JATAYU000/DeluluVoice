@@ -12,7 +12,9 @@ import {
   SkipForward,
 } from "lucide-react";
 import { useTape, type Cassette, STRIPE_COLORS } from "../context/TapeContext";
+import { useAuth } from "../context/AuthContext";
 import { GoldCoin } from "../components/GoldCoin";
+import ProfileModal from "../components/ProfileModal";
 
 interface CassetteGraphicProps {
   tape: Cassette;
@@ -177,7 +179,9 @@ export default function Dashboard() {
     deleteTape,
     addToInventory,
   } = useTape();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const [showProfile, setShowProfile] = useState(false);
   const [showTapeModal, setShowTapeModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState<"inventory" | "public">(
@@ -454,6 +458,31 @@ export default function Dashboard() {
             <span className="relative z-10 flex items-center gap-2 group-hover:text-white transition-colors">
               <Plus className="w-4 h-4" /> NEW RAP
             </span>
+          </button>
+
+          {/* Profile Avatar */}
+          <button
+            onClick={() => setShowProfile(true)}
+            className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-white/10 hover:ring-orange-500/50 transition-all hover:scale-105 shrink-0"
+          >
+            {user?.avatar_url ? (
+              <img
+                src={user.avatar_url}
+                alt="Profile"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center">
+                <span className="text-xs font-black text-white">
+                  {user?.name
+                    ?.split(" ")
+                    .map((w: string) => w[0])
+                    .join("")
+                    .toUpperCase()
+                    .slice(0, 2) || "?"}
+                </span>
+              </div>
+            )}
           </button>
         </div>
       </header>
@@ -1073,6 +1102,14 @@ export default function Dashboard() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Profile Modal */}
+          <ProfileModal
+            isOpen={showProfile}
+            onClose={() => setShowProfile(false)}
+            onLogout={() => navigate("/")}
+            onAccountDeleted={() => navigate("/")}
+          />
         </div>
       </div>
     </div>

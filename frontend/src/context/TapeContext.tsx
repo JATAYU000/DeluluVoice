@@ -1,4 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { useAuth } from "./AuthContext";
+
+const API = "http://localhost:8000";
 
 export interface Cassette {
   id: string;
@@ -39,27 +42,28 @@ interface TapeContextType {
   startGeneration: (
     lyrics: string,
     useInstruments: boolean,
-    aiEnhancedLyrics: boolean,
+    aiEnhancedLyrics: boolean
   ) => void;
   saveGeneratedTape: (
     name: string,
     color: string,
     isPublic: boolean,
-    file?: File,
+    file?: File
   ) => Promise<void>;
   deleteTape: (id: string) => void;
   resetGeneration: () => void;
   updateTape: (id: string, updates: Partial<Cassette>) => void;
   addToInventory: (tape: Cassette) => void;
+  refreshInventory: () => Promise<void>;
 }
 
 const TapeContext = createContext<TapeContextType | undefined>(undefined);
 
 export function TapeProvider({ children }: { children: React.ReactNode }) {
-  const [inventory, setInventory] = useState<Cassette[]>([]); //INVENTORY_TAPES
-  const [publicRecords, setPublicRecords] = useState<Cassette[]>([]); //PUBLIC_RECORDS_MOCK
-  const [credits, setCredits] = useState(10);
-  const [isPro, setIsPro] = useState(false);
+  const { user, setUser } = useAuth();
+
+  const [inventory, setInventory] = useState<Cassette[]>([]);
+  const [publicRecords, setPublicRecords] = useState<Cassette[]>([]);
   const [generationState, setGenerationState] = useState<GenerationState>({
     status: "idle",
     progress: 0,
@@ -68,29 +72,40 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
     aiEnhancedLyrics: false,
   });
 
-  useEffect(() => {
-    fetch("http://localhost:8000/songs")
-      .then((res) => res.json())
-      .then((data) => {
-        const safeData = Array.isArray(data) ? data : [];
-        setInventory(safeData);
-      })
-      .catch((err) => {
-        console.error(err);
-        setInventory([]);
-      });
+  // Derived from auth context
+  const credits = user?.credits ?? 0;
+  const isPro = user?.is_pro ?? false;
 
-    fetch("http://localhost:8000/public")
-      .then((res) => res.json())
-      .then((data) => {
-        const safeData = Array.isArray(data) ? data : [];
-        setPublicRecords(safeData);
-      })
-      .catch((err) => {
-        console.error(err);
-        setPublicRecords([]);
-      });
-  }, []);
+  const refreshInventory = async () => {
+    if (!user) {
+      setInventory([]);
+      return;
+    }
+    try {
+      const res = await fetch(`${API}/songs`, { credentials: "include" });
+      const data = await res.json();
+      setInventory(Array.isArray(data) ? data : []);
+    } catch {
+      setInventory([]);
+    }
+  };
+
+  const refreshPublic = async () => {
+    try {
+      const res = await fetch(`${API}/public`);
+      const data = await res.json();
+      setPublicRecords(Array.isArray(data) ? data : []);
+    } catch {
+      setPublicRecords([]);
+    }
+  };
+
+  // Fetch songs when user changes
+  useEffect(() => {
+    refreshInventory();
+    refreshPublic();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Simulates the backend generation process
   useEffect(() => {
@@ -114,10 +129,13 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
   const startGeneration = (
     lyrics: string,
     useInstruments: boolean,
-    aiEnhancedLyrics: boolean,
+    aiEnhancedLyrics: boolean
   ) => {
     if (credits < 10) return;
-    setCredits((prev) => prev - 10);
+    // Deduct credits locally — backend would also deduct in a real flow
+    if (user) {
+      setUser((prev) => (prev ? { ...prev, credits: prev.credits - 10 } : prev));
+    }
     setGenerationState({
       status: "generating",
       progress: 0,
@@ -128,14 +146,22 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addCredits = (amount: number) => {
-    setCredits((prev) => prev + amount);
+    if (user) {
+      setUser((prev) => (prev ? { ...prev, credits: prev.credits + amount } : prev));
+    }
+  };
+
+  const setIsPro = (val: boolean) => {
+    if (user) {
+      setUser((prev) => (prev ? { ...prev, is_pro: val } : prev));
+    }
   };
 
   const saveGeneratedTape = async (
     name: string,
     color: string,
     isPublic: boolean,
-    file?: File,
+    file?: File
   ) => {
     const formData = new FormData();
     if (!file) {
@@ -147,38 +173,25 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
     formData.append("color", color);
     formData.append("isPublic", String(isPublic));
 
-    await fetch("http://localhost:8000/upload", {
+    await fetch(`${API}/upload`, {
       method: "POST",
+      credentials: "include",
       body: formData,
     });
 
-    const songsRes = await fetch("http://localhost:8000/songs");
-    const songs = await songsRes.json();
-
-    setInventory(Array.isArray(songs) ? songs : []);
-
-    const publicRes = await fetch("http://localhost:8000/public");
-    const publicSongs = await publicRes.json();
-
-    setPublicRecords(Array.isArray(publicSongs) ? publicSongs : []);
-
+    await refreshInventory();
+    await refreshPublic();
     resetGeneration();
   };
 
   const deleteTape = async (id: string) => {
-    await fetch(`http://localhost:8000/song/${id}`, {
+    await fetch(`${API}/song/${id}`, {
       method: "DELETE",
+      credentials: "include",
     });
 
-    const songsRes = await fetch("http://localhost:8000/songs");
-    const songs = await songsRes.json();
-
-    setInventory(Array.isArray(songs) ? songs : []);
-
-    const publicRes = await fetch("http://localhost:8000/public");
-    const publicSongs = await publicRes.json();
-
-    setPublicRecords(Array.isArray(publicSongs) ? publicSongs : []);
+    await refreshInventory();
+    await refreshPublic();
   };
 
   const resetGeneration = () => {
@@ -192,32 +205,34 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateTape = async (id: string, updates: Partial<Cassette>) => {
-    const response = await fetch(`http://localhost:8000/song/${id}`, {
+    const response = await fetch(`${API}/song/${id}`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify(updates),
     });
 
     const updatedTape = await response.json();
 
     setInventory((prev) => prev.map((t) => (t.id === id ? updatedTape : t)));
-
-    setPublicRecords((prev) =>
-      prev.map((t) => (t.id === id ? updatedTape : t)),
-    );
+    setPublicRecords((prev) => prev.map((t) => (t.id === id ? updatedTape : t)));
   };
 
-  const addToInventory = (tape: Cassette) => {
-    setInventory((prev) => {
-      if (prev.find((t) => t.id === tape.id)) return prev; // Already in inventory
-      const maxTapes = isPro ? 39 : 26;
-      if (prev.length < maxTapes) {
-        return [...prev, { ...tape, isPublic: false }];
+  const addToInventory = async (tape: Cassette) => {
+    try {
+      const res = await fetch(`${API}/inventory/${tape.id}`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        await refreshInventory();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        console.error("Add to inventory failed:", err.detail);
       }
-      return prev;
-    });
+    } catch (err) {
+      console.error("Add to inventory failed:", err);
+    }
   };
 
   return (
@@ -236,6 +251,7 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
         resetGeneration,
         updateTape,
         addToInventory,
+        refreshInventory,
       }}
     >
       {children}
