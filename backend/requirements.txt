@@ -8,3 +8,5 @@ dnspython
 bcrypt
 PyJWT
 gradio_client
+auth
+requests

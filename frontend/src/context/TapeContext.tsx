@@ -1,7 +1,14 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
 import { useAuth } from "./AuthContext";
 
-const API = "http://localhost:8000";
+//const API = "http://localhost:8000";
+const API = "https://deluluvoice.onrender.com";
 
 export interface Cassette {
   id: string;
@@ -44,12 +51,12 @@ interface TapeContextType {
   startGeneration: (
     lyrics: string,
     useInstruments: boolean,
-    aiEnhancedLyrics: boolean
+    aiEnhancedLyrics: boolean,
   ) => void;
   saveGeneratedTape: (
     name: string,
     color: string,
-    isPublic: boolean
+    isPublic: boolean,
   ) => Promise<void>;
   deleteTape: (id: string) => void;
   resetGeneration: () => void;
@@ -149,12 +156,16 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
           // Refresh user to get refunded credits
           if (user) {
             try {
-              const meRes = await fetch(`${API}/me`, { credentials: "include" });
+              const meRes = await fetch(`${API}/me`, {
+                credentials: "include",
+              });
               if (meRes.ok) {
                 const meData = await meRes.json();
                 setUser(meData);
               }
-            } catch { /* ignore */ }
+            } catch {
+              /* ignore */
+            }
           }
         } else if (data.status === "generating") {
           setGenerationState((prev) => ({
@@ -194,7 +205,9 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
             progress: 100,
           }));
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     };
 
     checkExisting();
@@ -204,7 +217,7 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
   const startGeneration = async (
     lyrics: string,
     useInstruments: boolean,
-    aiEnhancedLyrics: boolean
+    aiEnhancedLyrics: boolean,
   ) => {
     if (credits < 10) return;
 
@@ -224,7 +237,9 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
 
       // Deduct credits locally for instant UI feedback
       if (user) {
-        setUser((prev) => (prev ? { ...prev, credits: prev.credits - 10 } : prev));
+        setUser((prev) =>
+          prev ? { ...prev, credits: prev.credits - 10 } : prev,
+        );
       }
 
       setGenerationState({
@@ -283,7 +298,7 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
   const saveGeneratedTape = async (
     name: string,
     color: string,
-    isPublic: boolean
+    isPublic: boolean,
   ) => {
     try {
       const res = await fetch(`${API}/generate/save`, {
@@ -324,7 +339,9 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
         method: "POST",
         credentials: "include",
       });
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -351,7 +368,9 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
     const updatedTape = await response.json();
 
     setInventory((prev) => prev.map((t) => (t.id === id ? updatedTape : t)));
-    setPublicRecords((prev) => prev.map((t) => (t.id === id ? updatedTape : t)));
+    setPublicRecords((prev) =>
+      prev.map((t) => (t.id === id ? updatedTape : t)),
+    );
   };
 
   const addToInventory = async (tape: Cassette) => {

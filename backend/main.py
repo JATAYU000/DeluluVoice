@@ -7,20 +7,20 @@ from typing import Optional
 
 import cloudinary
 import cloudinary.uploader
-from dotenv import load_dotenv
-from fastapi import Cookie, FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from gradio_client import Client as GradioClient, handle_file
-from pydantic import BaseModel, EmailStr
-from pymongo import MongoClient
-
 from auth import (
     create_access_token,
     decode_access_token,
     get_password_hash,
     verify_password,
 )
+from dotenv import load_dotenv
+from fastapi import Cookie, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from gradio_client import Client as GradioClient
+from gradio_client import handle_file
+from pydantic import BaseModel, EmailStr
+from pymongo import MongoClient
 
 load_dotenv()
 
@@ -51,10 +51,14 @@ cloudinary.config(
 )
 
 # ── ACE-Step Gradio client ──────────────────────────────────────────────────────
-HF_TOKEN = os.getenv("hf")
+HF_TOKEN = os.getenv("HF")
 REFERENCE_AUDIO_PATH = os.path.join(os.path.dirname(__file__), "reference_audio.mp3")
-DEFAULT_STYLE_PROMPT = "90 BPM, detroit hip-hop, aggressive rap, nasal male vocals, dark piano"
-NO_INSTRUMENT_STYLE_PROMPT = "90 BPM, a-cappella rap, aggressive vocals, nasal male voice, no instruments"
+DEFAULT_STYLE_PROMPT = (
+    "90 BPM, detroit hip-hop, aggressive rap, nasal male vocals, dark piano"
+)
+NO_INSTRUMENT_STYLE_PROMPT = (
+    "90 BPM, a-cappella rap, aggressive vocals, nasal male voice, no instruments"
+)
 
 # ── In-memory generation job tracking ───────────────────────────────────────────
 # Key: user_id, Value: dict with status/progress/error/cloudinary info
@@ -141,11 +145,11 @@ def _run_generation(user_id: str, lyrics: str, use_instruments: bool):
     and updates the job state. Refunds credits on failure.
     """
     try:
-        gradio_client = GradioClient(
-            "ACE-Step/Ace-Step-v1.5", token=HF_TOKEN
-        )
+        gradio_client = GradioClient("ACE-Step/Ace-Step-v1.5", token=HF_TOKEN)
 
-        style_prompt = DEFAULT_STYLE_PROMPT if use_instruments else NO_INSTRUMENT_STYLE_PROMPT
+        style_prompt = (
+            DEFAULT_STYLE_PROMPT if use_instruments else NO_INSTRUMENT_STYLE_PROMPT
+        )
 
         result = gradio_client.predict(
             selected_model="acestep-v15-turbo",
@@ -165,32 +169,62 @@ def _run_generation(user_id: str, lyrics: str, use_instruments: bool):
             param_14=handle_file(REFERENCE_AUDIO_PATH),
             param_15=40,
             param_16=1,
-            param_17=None, param_18="", param_19=0, param_20=-1,
-            param_21="Fill the audio semantic mask", param_22=1,
-            param_23="text2music", param_24=False, param_25=0,
-            param_26=1, param_27=3, param_28="ode", param_29="",
-            param_30="mp3", param_31=0.85, param_32=True, param_33=2,
-            param_34=0, param_35=0.9, param_36="NO USER INPUT",
-            param_37=True, param_38=True, param_39=True,
-            param_41=False, param_42=True, param_43=False,
-            param_44=False, param_45=0.5, param_46=8,
-            param_47="vocals", param_48=[], param_49=False,
+            param_17=None,
+            param_18="",
+            param_19=0,
+            param_20=-1,
+            param_21="Fill the audio semantic mask",
+            param_22=1,
+            param_23="text2music",
+            param_24=False,
+            param_25=0,
+            param_26=1,
+            param_27=3,
+            param_28="ode",
+            param_29="",
+            param_30="mp3",
+            param_31=0.85,
+            param_32=True,
+            param_33=2,
+            param_34=0,
+            param_35=0.9,
+            param_36="NO USER INPUT",
+            param_37=True,
+            param_38=True,
+            param_39=True,
+            param_41=False,
+            param_42=True,
+            param_43=False,
+            param_44=False,
+            param_45=0.5,
+            param_46=8,
+            param_47="vocals",
+            param_48=[],
+            param_49=False,
             api_name="/generation_wrapper",
         )
 
         # Extract .mp3 from result
         # Log result structure for debugging
-        print(f"[GEN] Result type: {type(result)}, length: {len(result) if isinstance(result, (list, tuple)) else 'N/A'}")
+        print(
+            f"[GEN] Result type: {type(result)}, length: {len(result) if isinstance(result, (list, tuple)) else 'N/A'}"
+        )
         for i, item in enumerate(result if isinstance(result, (list, tuple)) else []):
             print(f"[GEN]   result[{i}]: {type(item).__name__} = {repr(item)[:200]}")
 
         temp_path = None
 
         # Try the expected index first
-        all_files = result[8] if isinstance(result, (list, tuple)) and len(result) > 8 else None
+        all_files = (
+            result[8] if isinstance(result, (list, tuple)) and len(result) > 8 else None
+        )
         if all_files:
             for f in all_files:
-                path = f if isinstance(f, str) else getattr(f, "name", getattr(f, "path", str(f)))
+                path = (
+                    f
+                    if isinstance(f, str)
+                    else getattr(f, "name", getattr(f, "path", str(f)))
+                )
                 if path.endswith(".mp3"):
                     temp_path = path
                     break
@@ -203,7 +237,11 @@ def _run_generation(user_id: str, lyrics: str, use_instruments: bool):
                     break
                 if isinstance(item, (list, tuple)):
                     for f in item:
-                        path = f if isinstance(f, str) else getattr(f, "name", getattr(f, "path", str(f)))
+                        path = (
+                            f
+                            if isinstance(f, str)
+                            else getattr(f, "name", getattr(f, "path", str(f)))
+                        )
                         if isinstance(path, str) and path.endswith(".mp3"):
                             temp_path = path
                             break
@@ -217,9 +255,7 @@ def _run_generation(user_id: str, lyrics: str, use_instruments: bool):
             )
 
         # Upload to Cloudinary
-        upload_result = cloudinary.uploader.upload(
-            temp_path, resource_type="video"
-        )
+        upload_result = cloudinary.uploader.upload(temp_path, resource_type="video")
 
         with jobs_lock:
             job = generation_jobs.get(user_id)
@@ -236,9 +272,7 @@ def _run_generation(user_id: str, lyrics: str, use_instruments: bool):
                 job["status"] = "error"
                 job["error"] = str(e)
         # Refund credits
-        users_collection.update_one(
-            {"id": user_id}, {"$inc": {"credits": 10}}
-        )
+        users_collection.update_one({"id": user_id}, {"$inc": {"credits": 10}})
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -292,7 +326,11 @@ class LoginBody(BaseModel):
 @app.post("/auth/login")
 async def login(body: LoginBody):
     user = users_collection.find_one({"email": body.email})
-    if not user or "password_hash" not in user or not verify_password(body.password, user["password_hash"]):
+    if (
+        not user
+        or "password_hash" not in user
+        or not verify_password(body.password, user["password_hash"])
+    ):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     token, delta = create_access_token(
@@ -529,9 +567,7 @@ async def update_song(
 
 
 @app.post("/inventory/{song_id}")
-async def add_to_inventory(
-    song_id: str, access_token: Optional[str] = Cookie(None)
-):
+async def add_to_inventory(song_id: str, access_token: Optional[str] = Cookie(None)):
     user = _get_current_user(access_token)
 
     # Check if song exists and is public
@@ -589,9 +625,7 @@ async def start_generation(
         raise HTTPException(status_code=403, detail="Not enough credits")
 
     # Deduct credits
-    users_collection.update_one(
-        {"id": user_id}, {"$inc": {"credits": -10}}
-    )
+    users_collection.update_one({"id": user_id}, {"$inc": {"credits": -10}})
 
     # Initialize job state
     with jobs_lock:
@@ -658,9 +692,7 @@ async def save_generated_track(
         job = generation_jobs.get(user_id)
 
     if not job or job["status"] != "complete":
-        raise HTTPException(
-            status_code=400, detail="No completed generation to save"
-        )
+        raise HTTPException(status_code=400, detail="No completed generation to save")
 
     song_id = str(uuid.uuid4())
     song = {
@@ -676,9 +708,7 @@ async def save_generated_track(
     }
 
     songs_collection.insert_one(song)
-    users_collection.update_one(
-        {"id": user_id}, {"$addToSet": {"song_ids": song_id}}
-    )
+    users_collection.update_one({"id": user_id}, {"$addToSet": {"song_ids": song_id}})
 
     # Clear job state
     with jobs_lock:
@@ -734,9 +764,7 @@ async def add_credits(body: AddCreditsBody, access_token: Optional[str] = Cookie
     if body.amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be positive")
 
-    users_collection.update_one(
-        {"id": user["id"]}, {"$inc": {"credits": body.amount}}
-    )
+    users_collection.update_one({"id": user["id"]}, {"$inc": {"credits": body.amount}})
 
     updated = users_collection.find_one(
         {"id": user["id"]}, {"_id": 0, "password_hash": 0}
@@ -752,9 +780,7 @@ async def upgrade_to_pro(access_token: Optional[str] = Cookie(None)):
     if user.get("is_pro", False):
         raise HTTPException(status_code=409, detail="Already a Pro user")
 
-    users_collection.update_one(
-        {"id": user["id"]}, {"$set": {"is_pro": True}}
-    )
+    users_collection.update_one({"id": user["id"]}, {"$set": {"is_pro": True}})
 
     updated = users_collection.find_one(
         {"id": user["id"]}, {"_id": 0, "password_hash": 0}
