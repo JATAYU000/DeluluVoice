@@ -47,9 +47,9 @@ export default function Signup() {
       className="min-h-screen flex flex-col items-center justify-center p-4"
       onClick={() => navigate("/")}
     >
-      <Link to="/" className="fixed top-6 left-6 flex items-center gap-2 group">
-        <Mic2 className="text-orange-500 w-6 h-6 group-hover:scale-110 transition-transform" />
-        <span className="text-xl font-bold tracking-tighter">
+      <Link to="/" className="fixed top-4 md:top-6 left-4 md:left-6 flex items-center gap-2 group z-50">
+        <Mic2 className="text-orange-500 w-5 h-5 md:w-6 md:h-6 group-hover:scale-110 transition-transform" />
+        <span className="text-lg md:text-xl font-bold tracking-tighter">
           DELULU<span className="text-orange-500">VOICE</span>
         </span>
       </Link>
@@ -57,7 +57,7 @@ export default function Signup() {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md bg-gray-900/50 border border-white/10 rounded-3xl p-8 backdrop-blur-sm"
+        className="w-full max-w-md bg-gray-900/50 border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-sm mt-12 md:mt-0"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="text-center mb-8">

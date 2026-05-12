@@ -427,18 +427,18 @@ export default function Dashboard() {
   }, [playerState]);
 
   return (
-    <div className="h-screen w-full bg-[#050505] overflow-hidden flex flex-col relative font-sans text-white">
+    <div className="min-h-screen lg:h-screen w-full bg-[#050505] overflow-y-auto lg:overflow-hidden flex flex-col relative font-sans text-white">
       {/* Background Ambience Layers */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(20,20,20,1)_0%,rgba(5,5,5,1)_100%)] z-0" />
       <div className="absolute top-[10%] left-[20%] w-[40%] h-[40%] bg-[#ff5500]/5 blur-[150px] rounded-full pointer-events-none z-0" />
 
       {/* HEADER */}
-      <header className="absolute top-0 w-full p-6 px-10 flex justify-between items-center z-40 bg-gradient-to-b from-black to-transparent pointer-events-none">
+      <header className="absolute top-0 w-full p-4 md:p-6 px-4 md:px-10 flex justify-between items-center z-40 bg-gradient-to-b from-black to-transparent pointer-events-none">
         <div className="flex items-center gap-3 pointer-events-auto">
           <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center border border-orange-500/30">
             <Mic2 className="text-orange-500 w-5 h-5 shadow-neon" />
           </div>
-          <span className="text-2xl font-display font-black tracking-tight text-white drop-shadow-md">
+          <span className="text-lg md:text-2xl font-display font-black tracking-tight text-white drop-shadow-md">
             DELULU<span className="text-orange-500">VOICE</span>
           </span>
         </div>
@@ -446,18 +446,18 @@ export default function Dashboard() {
         <div className="flex items-center gap-6 pointer-events-auto">
           <Link
             to="/pricing"
-            className="bg-[#111]/80 backdrop-blur-md border border-white/5 py-1.5 pl-2 pr-5 rounded-full flex items-center gap-2 hover:bg-[#1a1a1a] hover:border-orange-500/30 transition-all shadow-glass"
+            className="bg-[#111]/80 backdrop-blur-md border border-white/5 py-1.5 pl-2 pr-4 md:pr-5 rounded-full flex items-center gap-1 md:gap-2 hover:bg-[#1a1a1a] hover:border-orange-500/30 transition-all shadow-glass"
           >
-            <GoldCoin className="w-7 h-7" />
-            <span className="font-bold text-sm text-[#fdfbf7]">{credits}</span>
+            <GoldCoin className="w-6 h-6 md:w-7 md:h-7" />
+            <span className="font-bold text-xs md:text-sm text-[#fdfbf7]">{credits}</span>
           </Link>
           <button
             onClick={openNewTapeModal}
-            className="group relative bg-[#fdfbf7] text-black px-6 py-2.5 rounded-full text-sm font-black tracking-wide flex items-center gap-2 hover:scale-105 transition-all overflow-hidden shadow-neon"
+            className="group relative bg-[#fdfbf7] text-black px-4 md:px-6 py-2 md:py-2.5 rounded-full text-xs md:text-sm font-black tracking-wide flex items-center gap-2 hover:scale-105 transition-all overflow-hidden shadow-neon"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-orange-500 opacity-0 group-hover:opacity-100 transition-opacity z-0" />
-            <span className="relative z-10 flex items-center gap-2 group-hover:text-white transition-colors">
-              <Plus className="w-4 h-4" /> NEW RAP
+            <span className="relative z-10 flex items-center gap-1 md:gap-2 group-hover:text-white transition-colors">
+              <Plus className="w-3 h-3 md:w-4 md:h-4" /> <span className="hidden sm:inline">NEW RAP</span> <span className="sm:hidden">NEW</span>
             </span>
           </button>
 
@@ -489,9 +489,9 @@ export default function Dashboard() {
       </header>
 
       {/* MAIN 2D LAYOUT */}
-      <div className="flex flex-1 pt-24 pb-12 px-10 gap-20 h-full z-10 relative items-center justify-center">
-        {/* LEFT COLUMN */}
-        <div className="w-[48%] max-w-[540px] h-[95%] flex flex-col relative select-none">
+      <div className="flex flex-col lg:flex-row flex-1 pt-24 pb-12 px-4 md:px-10 gap-12 lg:gap-20 lg:h-full z-10 relative items-center justify-center">
+        {/* LEFT COLUMN: Physical shelf on mobile follows the player */}
+        <div className="order-2 lg:order-1 w-full lg:w-[48%] lg:max-w-[540px] h-auto lg:h-[95%] flex flex-col relative select-none">
           <div className="mb-4 flex items-center justify-between px-2">
             <div className="flex gap-6">
               <button
@@ -515,93 +515,145 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="flex-1 w-full bg-[#111] flex flex-col rounded-xl border-2 border-[#1a1a1a] shadow-[inset_0_10px_20px_rgba(0,0,0,0.8),0_10px_30px_rgba(0,0,0,0.5)] p-4 px-6 relative z-50 overflow-hidden">
+          <div className="flex-1 w-full bg-[#111] flex flex-col rounded-xl border-2 border-[#1a1a1a] shadow-[inset_0_10px_20px_rgba(0,0,0,0.8),0_10px_30px_rgba(0,0,0,0.5)] p-4 px-6 relative z-50 overflow-hidden min-h-[400px] lg:min-h-0">
             {/* The dark inner cavity of the shelf */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-[#050505] pointer-events-none rounded-xl" />
 
             {activeTab === "inventory" ? (
-              <div className="flex flex-col h-full gap-4 relative justify-around">
-                {Array.from({ length: 3 }).map((_, rowIndex) => {
-                  const tapesInRow = (
-                    Array.isArray(inventory) ? inventory : []
-                  ).slice(rowIndex * 13, (rowIndex + 1) * 13);
-                  return (
-                    <div
-                      key={rowIndex}
-                      className="flex-1 border-b-[6px] border-[#222] shadow-[0_4px_10px_rgba(0,0,0,1)] relative flex items-end pb-1 gap-1"
-                    >
-                      {/* Physical wood/plastic shelf row edge */}
-                      <div className="absolute -bottom-[6px] left-[-24px] right-[-24px] h-[6px] bg-[#1a1a1a] border-t border-white/5 shadow-[0_4px_6px_rgba(0,0,0,0.8)] z-[-1]" />
+              <div className="h-full relative overflow-y-auto no-scrollbar pt-2">
+                {/* MOBILE VIEW: Wrapping Grid of Spines */}
+                <div className="flex md:hidden flex-wrap gap-x-2 gap-y-4 justify-center pb-8">
+                  {(Array.isArray(inventory) ? inventory : []).map((tape, i) => {
+                    const isPlaying = selectedTape?.id === tape.id;
+                    const isLocked = !isPro && i >= 26;
 
-                      {/* Tapes in this row (up to 13) */}
-                      {Array.from({ length: 13 }).map((_, colIndex) => {
-                        const slotKey = rowIndex * 13 + colIndex;
-                        const isLocked = !isPro && rowIndex === 2;
-                        const tape = tapesInRow[colIndex];
+                    if (isLocked) return null;
 
-                        if (isLocked) {
+                    return (
+                      <button
+                        key={tape.id}
+                        onClick={() => handleSelectTape(tape)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          openEditModal(tape);
+                        }}
+                        className={`group relative h-32 w-[7.5%] flex-shrink-0 flex justify-center bg-gradient-to-b from-[#222] to-[#1a1a1a] border border-[#333] border-b-[#050505] rounded-[2px] shadow-[2px_0_4px_rgba(0,0,0,0.6)] transition-all duration-300 origin-bottom ${isPlaying ? "opacity-0 pointer-events-none" : "active:scale-95"}`}
+                      >
+                        <div
+                          className="absolute top-1 inset-x-1 h-2 rounded-[1px] opacity-90 border-b border-[#000]/30 shadow-[inset_0_1px_2px_rgba(255,255,255,0.2)]"
+                          style={{ background: tape.color }}
+                        />
+                        <div className="absolute top-5 w-1 h-1 rounded-full bg-black" />
+                        <span
+                          className="font-mono text-[8px] font-bold text-white/80 tracking-widest uppercase truncate transform -rotate-90 whitespace-nowrap absolute"
+                          style={{
+                            bottom: "35%",
+                            width: "80px",
+                            transformOrigin: "center",
+                          }}
+                        >
+                          {tape.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+
+                  {/* Empty slots for mobile */}
+                  {Array.from({
+                    length: Math.max(
+                      0,
+                      (isPro ? 39 : 26) - (Array.isArray(inventory) ? inventory.length : 0),
+                    ),
+                  }).map((_, i) => {
+                    const slotIndex = (Array.isArray(inventory) ? inventory.length : 0) + i;
+                    const isLocked = !isPro && slotIndex >= 26;
+                    if (isLocked) return null;
+
+                    return (
+                      <div
+                        key={`empty-${i}`}
+                        className="h-32 w-[7.5%] bg-white/5 border border-white/5 rounded-[2px] opacity-20"
+                      />
+                    );
+                  })}
+                </div>
+
+                {/* DESKTOP VIEW: Fixed 3-Row Physical Shelf */}
+                <div className="hidden md:flex flex-col h-full gap-4 relative justify-around">
+                  {Array.from({ length: 3 }).map((_, rowIndex) => {
+                    const tapesInRow = (
+                      Array.isArray(inventory) ? inventory : []
+                    ).slice(rowIndex * 13, (rowIndex + 1) * 13);
+                    return (
+                      <div
+                        key={rowIndex}
+                        className="flex-1 border-b-[6px] border-[#222] shadow-[0_4px_10px_rgba(0,0,0,1)] relative flex items-end pb-1 gap-1"
+                      >
+                        <div className="absolute -bottom-[6px] left-[-24px] right-[-24px] h-[6px] bg-[#1a1a1a] border-t border-white/5 shadow-[0_4px_6px_rgba(0,0,0,0.8)] z-[-1]" />
+
+                        {Array.from({ length: 13 }).map((_, colIndex) => {
+                          const slotKey = rowIndex * 13 + colIndex;
+                          const isLocked = !isPro && rowIndex === 2;
+                          const tape = tapesInRow[colIndex];
+
+                          if (isLocked) {
+                            return (
+                              <div
+                                key={slotKey}
+                                className="w-[7.5%] h-[95%] opacity-0 pointer-events-none flex-shrink-0"
+                              />
+                            );
+                          }
+
+                          if (!tape)
+                            return (
+                              <div
+                                key={slotKey}
+                                className="w-[7.5%] h-[95%] opacity-0 pointer-events-none flex-shrink-0"
+                              />
+                            );
+
+                          const isPlaying = selectedTape?.id === tape.id;
+
                           return (
-                            <div
+                            <button
                               key={slotKey}
-                              className="w-[7.5%] h-[95%] opacity-0 pointer-events-none flex-shrink-0"
-                            />
-                          );
-                        }
-
-                        // Empty slot
-                        if (!tape)
-                          return (
-                            <div
-                              key={slotKey}
-                              className="w-[7.5%] h-[95%] opacity-0 pointer-events-none flex-shrink-0"
-                            />
-                          );
-
-                        const isPlaying = selectedTape?.id === tape.id;
-
-                        return (
-                          <button
-                            key={slotKey}
-                            onClick={() => handleSelectTape(tape)}
-                            onContextMenu={(e) => {
-                              e.preventDefault();
-                              openEditModal(tape);
-                            }}
-                            className={`group relative h-[100%] w-[7.5%] flex-shrink-0 flex justify-center bg-gradient-to-b from-[#222] to-[#1a1a1a] border border-[#333] border-b-[#050505] rounded-[2px] shadow-[2px_0_4px_rgba(0,0,0,0.6)] transition-all duration-300 origin-bottom ${isPlaying ? "opacity-0 pointer-events-none" : "hover:-translate-y-2 hover:scale-[1.10] hover:z-[60] hover:shadow-[0_20px_40px_rgba(0,0,0,0.9)]"}`}
-                          >
-                            {/* Spine Color Indicator */}
-                            <div
-                              className="absolute top-1 inset-x-1 h-3 rounded-[1px] opacity-90 border-b border-[#000]/30 shadow-[inset_0_2px_4px_rgba(255,255,255,0.2)]"
-                              style={{ background: tape.color }}
-                            />
-
-                            {/* Spine Screw Detail */}
-                            <div className="absolute top-6 w-1.5 h-1.5 rounded-full bg-black shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]" />
-
-                            {/* Spine Text (Vertical) */}
-                            <span
-                              className="font-mono text-[9px] font-bold text-white/80 tracking-widest uppercase truncate drop-shadow transform -rotate-90 whitespace-nowrap absolute"
-                              style={{
-                                bottom: "40%",
-                                width: "100px",
-                                transformOrigin: "center",
+                              onClick={() => handleSelectTape(tape)}
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                openEditModal(tape);
                               }}
+                              className={`group relative h-[100%] w-[7.5%] flex-shrink-0 flex justify-center bg-gradient-to-b from-[#222] to-[#1a1a1a] border border-[#333] border-b-[#050505] rounded-[2px] shadow-[2px_0_4px_rgba(0,0,0,0.6)] transition-all duration-300 origin-bottom ${isPlaying ? "opacity-0 pointer-events-none" : "hover:-translate-y-2 hover:scale-[1.10] hover:z-[60] hover:shadow-[0_20px_40px_rgba(0,0,0,0.9)]"}`}
                             >
-                              {tape.name}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
+                              <div
+                                className="absolute top-1 inset-x-1 h-3 rounded-[1px] opacity-90 border-b border-[#000]/30 shadow-[inset_0_2px_4px_rgba(255,255,255,0.2)]"
+                                style={{ background: tape.color }}
+                              />
+                              <div className="absolute top-6 w-1.5 h-1.5 rounded-full bg-black shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]" />
+                              <span
+                                className="font-mono text-[9px] font-bold text-white/80 tracking-widest uppercase truncate drop-shadow transform -rotate-90 whitespace-nowrap absolute"
+                                style={{
+                                  bottom: "40%",
+                                  width: "100px",
+                                  transformOrigin: "center",
+                                }}
+                              >
+                                {tape.name}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
 
-                {/* Pro Lock Overlay for 3rd Row */}
+                {/* Pro Lock Overlay */}
                 {!isPro && (
-                  <div className="absolute bottom-4 left-4 right-4 h-[28%] bg-black/60 backdrop-blur-sm border border-orange-500/30 rounded-lg z-[60] flex flex-col items-center justify-center p-4">
-                    <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center mb-2">
+                  <div className="md:absolute relative w-full md:w-auto md:bottom-4 md:left-4 md:right-4 md:h-[28%] h-auto min-h-[140px] mt-8 md:mt-0 bg-black/60 backdrop-blur-sm border border-orange-500/30 rounded-lg z-[60] flex flex-col items-center justify-center p-6">
+                    <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-orange-500/20 flex items-center justify-center mb-2">
                       <svg
-                        className="w-5 h-5 text-orange-500"
+                        className="w-4 h-4 md:w-5 md:h-5 text-orange-500"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -614,15 +666,15 @@ export default function Dashboard() {
                         />
                       </svg>
                     </div>
-                    <h3 className="font-display font-black text-white text-lg tracking-widest uppercase mb-1">
+                    <h3 className="font-display font-black text-white text-base md:text-lg tracking-widest uppercase mb-1">
                       Row Locked
                     </h3>
-                    <p className="text-[9px] font-mono tracking-widest text-white/50 uppercase text-center mb-4">
-                      Pro Plan required to stash 13 more tapes
+                    <p className="text-[8px] md:text-[9px] font-mono tracking-widest text-white/50 uppercase text-center mb-4">
+                      Upgrade to Pro to unlock 13 more tape slots
                     </p>
                     <Link
                       to="/pricing"
-                      className="bg-orange-500 hover:bg-orange-400 text-black px-6 py-2 rounded-full font-bold text-xs font-mono uppercase tracking-widest transition-colors shadow-[0_0_15px_rgba(255,100,0,0.4)] pointer-events-auto"
+                      className="bg-orange-500 hover:bg-orange-400 text-black px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all"
                     >
                       Unlock Now
                     </Link>
@@ -710,7 +762,7 @@ export default function Dashboard() {
         </div>
 
         {/* RIGHT COLUMN: FRONT-FACING RETRO BOOMBOX PLAYER */}
-        <div className="flex-1 max-w-[600px] flex items-center justify-center">
+        <div className="order-1 lg:order-2 w-full lg:flex-1 lg:max-w-[600px] flex items-center justify-center">
           {/* The Main Boombox Chassis (Based on User Reference Image) */}
           <div className="w-full aspect-[4/3] bg-gradient-to-b from-[#1a1a1a] to-[#0a0a0a] rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.9),inset_0_4px_4px_rgba(255,255,255,0.1),inset_0_-8px_4px_rgba(0,0,0,0.6)] border-2 border-[#111] border-b-[#000] p-4 flex flex-col relative z-20">
             {/* 0. The Floating Carry Handle */}
@@ -1031,7 +1083,7 @@ export default function Dashboard() {
                   initial={{ scale: 0.9, y: 30 }}
                   animate={{ scale: 1, y: 0 }}
                   exit={{ scale: 0.9, y: 30 }}
-                  className="relative flex flex-col items-center gap-5 w-[480px]"
+                  className="relative flex flex-col items-center gap-5 w-full max-w-[480px]"
                   onClick={(e) => e.stopPropagation()}
                   onSubmit={handleSaveEdit}
                 >
@@ -1061,7 +1113,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* The giant tape interface */}
-                  <div className="w-[450px] h-[280px]">
+                  <div className="w-full max-w-[450px] aspect-[450/280]">
                     <CassetteGraphic
                       tape={{
                         id: editingTapeId || "temp",
@@ -1117,7 +1169,7 @@ export default function Dashboard() {
                         </span>
                       </label>
                     </div>
-                    <div className="flex gap-4 w-full">
+                    <div className="flex flex-col sm:flex-row gap-4 w-full">
                       <button
                         type="button"
                         onClick={handleDeleteTape}

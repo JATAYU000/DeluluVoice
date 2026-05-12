@@ -43,9 +43,9 @@ export default function Checkout() {
 
     return (
         <div className="min-h-screen bg-black pt-12 px-4 pb-20 font-sans flex justify-center">
-            <Link to="/pricing" className="fixed top-6 left-6 flex items-center gap-2 text-white/50 hover:text-white transition-colors group z-50">
+            <Link to="/pricing" className="fixed top-4 md:top-6 left-4 md:left-6 flex items-center gap-2 text-white/50 hover:text-white transition-colors group z-50">
                 <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                <span className="font-medium font-mono text-sm tracking-widest uppercase">Back</span>
+                <span className="font-medium font-mono text-[10px] md:text-sm tracking-widest uppercase">Back</span>
             </Link>
 
             <motion.div
@@ -53,17 +53,17 @@ export default function Checkout() {
                 className="w-full max-w-4xl grid md:grid-cols-2 gap-8 items-start mt-8"
             >
                 {/* Order Summary */}
-                <div className="bg-white/5 border border-white/10 rounded-3xl p-8 flex flex-col">
-                    <h2 className="text-xl font-display font-black text-white/80 uppercase tracking-widest mb-8">
+                <div className="bg-white/5 border border-white/10 rounded-3xl p-6 md:p-8 flex flex-col">
+                    <h2 className="text-lg md:text-xl font-display font-black text-white/80 uppercase tracking-widest mb-6 md:mb-8">
                         Order Summary
                     </h2>
 
                     <div className="flex items-center gap-4 mb-8">
-                        <div className="w-16 h-16 rounded-2xl bg-orange-500/20 flex items-center justify-center border border-orange-500/30">
-                            <GoldCoin className="w-8 h-8" />
+                        <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-orange-500/20 flex items-center justify-center border border-orange-500/30">
+                            <GoldCoin className="w-6 h-6 md:w-8 md:h-8" />
                         </div>
                         <div>
-                            <h3 className="text-2xl font-display font-black text-white uppercase tracking-tighter">
+                            <h3 className="text-xl md:text-2xl font-display font-black text-white uppercase tracking-tighter">
                                 {plan}
                             </h3>
                             <p className="text-orange-500 font-mono text-sm tracking-widest uppercase mt-1">
@@ -113,8 +113,8 @@ export default function Checkout() {
                             onClick={() => setPaymentMethod('wallet')}
                             className={`py-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${paymentMethod === 'wallet' ? 'bg-orange-500/10 border-orange-500 text-orange-500' : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white'}`}
                         >
-                            <Wallet className="w-6 h-6" />
-                            <span className="font-mono text-[10px] tracking-widest uppercase font-bold">Wallets</span>
+                            <Wallet className="w-5 h-5 md:w-6 md:h-6" />
+                            <span className="font-mono text-[8px] md:text-[10px] tracking-widest uppercase font-bold text-center">Wallets</span>
                         </button>
                     </div>
 

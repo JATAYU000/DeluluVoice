@@ -35,9 +35,9 @@ const proFeatures = [
 export default function Pricing() {
     return (
         <div className="min-h-screen bg-black pt-10 px-4 pb-10 font-sans flex flex-col items-center justify-center">
-            <Link to="/dashboard" className="fixed top-6 left-6 flex items-center gap-2 text-gray-400 hover:text-white transition-colors group z-50">
+            <Link to="/dashboard" className="fixed top-4 md:top-6 left-4 md:left-6 flex items-center gap-2 text-gray-400 hover:text-white transition-colors group z-50">
                 <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                <span className="font-medium font-mono text-sm tracking-widest uppercase">Back to Studio</span>
+                <span className="font-medium font-mono text-[10px] md:text-sm tracking-widest uppercase">Back to Studio</span>
             </Link>
 
             <div className="max-w-6xl mx-auto flex flex-col items-center w-full">
@@ -50,7 +50,7 @@ export default function Pricing() {
                     </motion.div>
                     <motion.h1
                         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                        className="text-3xl md:text-4xl font-extrabold mb-2 font-display uppercase tracking-tighter text-white"
+                        className="text-2xl md:text-4xl font-extrabold mb-2 font-display uppercase tracking-tighter text-white"
                     >
                         Upgrade Your Studio
                     </motion.h1>
@@ -67,7 +67,7 @@ export default function Pricing() {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.3 }}
-                    className="w-full max-w-4xl mb-8 bg-gradient-to-br from-orange-500/20 to-purple-600/20 border-2 border-orange-500/50 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden shadow-[0_0_50px_rgba(255,100,0,0.15)]"
+                    className="w-full max-w-4xl mb-8 bg-gradient-to-br from-orange-500/20 to-purple-600/20 border-2 border-orange-500/50 rounded-2xl p-5 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden shadow-[0_0_50px_rgba(255,100,0,0.15)]"
                 >
                     <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 blur-3xl rounded-full" />
 
@@ -75,7 +75,7 @@ export default function Pricing() {
                         <div className="inline-flex items-center gap-1 bg-orange-500 text-black px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-4">
                             <Crown className="w-3 h-3" /> Lifetime Ownership
                         </div>
-                        <h2 className="text-3xl md:text-4xl font-display font-black text-white uppercase tracking-tighter mb-2">
+                        <h2 className="text-2xl md:text-4xl font-display font-black text-white uppercase tracking-tighter mb-2">
                             Pro Studio Plan
                         </h2>
                         <div className="flex items-baseline gap-3 mb-4">
@@ -132,7 +132,7 @@ export default function Pricing() {
                                 <div className="text-orange-500 mb-4 flex flex-col items-center">
                                     <div className="flex items-center justify-center gap-2 mb-1">
                                         <GoldCoin className="w-8 h-8 md:w-10 md:h-10" />
-                                        <span className="text-5xl font-display font-black tracking-tighter">{pkg.credits}</span>
+                                        <span className="text-4xl md:text-5xl font-display font-black tracking-tighter">{pkg.credits}</span>
                                     </div>
                                     <span className="block text-[10px] font-mono font-bold uppercase tracking-widest text-white/60">Credits</span>
                                 </div>

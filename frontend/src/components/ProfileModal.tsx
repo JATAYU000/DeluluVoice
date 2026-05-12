@@ -94,7 +94,7 @@ export default function ProfileModal({
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.9, y: 30, opacity: 0 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="w-full max-w-sm bg-[#111] border border-white/10 rounded-3xl p-8 relative"
+            className="w-full max-w-sm bg-[#111] border border-white/10 rounded-3xl p-6 md:p-8 relative"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close button */}

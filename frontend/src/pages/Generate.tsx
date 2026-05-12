@@ -43,12 +43,12 @@ export default function Generate() {
     };
 
     return (
-        <div className="min-h-screen bg-[#050505] text-white p-6 md:p-12 font-sans flex flex-col items-center">
+        <div className="min-h-screen bg-[#050505] text-white p-4 md:p-12 font-sans flex flex-col items-center">
             {/* Header */}
             <header className="w-full max-w-6xl flex justify-between items-center mb-12">
                 <Link to="/dashboard" className="text-white/50 hover:text-white flex items-center gap-2 transition-colors">
                     <ChevronLeft className="w-5 h-5" />
-                    <span className="font-mono text-sm tracking-widest uppercase">Back to Studio</span>
+                    <span className="font-mono text-[10px] md:text-sm tracking-widest uppercase">Back to Studio</span>
                 </Link>
                 <div className="flex items-center gap-4">
                     <div className="bg-white/5 border border-white/10 px-4 py-1.5 rounded-full flex items-center gap-2">
@@ -61,9 +61,9 @@ export default function Generate() {
             <div className="w-full max-w-6xl flex-1 flex flex-col lg:flex-row gap-12 lg:gap-20">
 
                 {/* Left Side: Input Area */}
-                <div className="flex-1 flex flex-col relative z-10">
+                <div className="flex-1 flex flex-col relative z-10 w-full">
                     <div className="flex justify-between items-center mb-6">
-                        <h1 className="font-display font-black text-4xl tracking-tighter uppercase">New Track</h1>
+                        <h1 className="font-display font-black text-3xl md:text-4xl tracking-tighter uppercase">New Track</h1>
                         <button
                             onClick={() => setShowInfo(!showInfo)}
                             className={`p-2 rounded-full transition-colors ${showInfo ? 'bg-orange-500 text-black' : 'bg-white/5 text-white/50 hover:text-white hover:bg-white/10'}`}
@@ -106,8 +106,8 @@ export default function Generate() {
                             className="w-full flex-1 bg-transparent text-white p-6 font-mono text-xs sm:text-sm leading-relaxed resize-none focus:outline-none placeholder-white/20"
                         />
 
-                        <div className="border-t border-white/10 p-4 flex justify-between items-center bg-black/40 rounded-b-xl gap-4">
-                            <div className="flex gap-6 items-center">
+                        <div className="border-t border-white/10 p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-black/40 rounded-b-xl gap-4">
+                            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center w-full sm:w-auto">
                                 <label className="flex items-center gap-3 cursor-pointer group">
                                     <input
                                         type="checkbox"
@@ -155,7 +155,7 @@ export default function Generate() {
                 </div>
 
                 {/* Right Side: Visualizer / State panel */}
-                <div className="flex-[0.8] flex flex-col items-center justify-center relative perspective-[1000px]">
+                <div className="w-full lg:flex-[0.8] flex flex-col items-center justify-center relative perspective-[1000px]">
 
                     {/* IDLE STATE */}
                     {generationState.status === 'idle' && (
@@ -163,10 +163,10 @@ export default function Generate() {
                             initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
                             className="w-full flex flex-col items-center justify-center p-8 bg-gradient-to-br from-white/5 to-transparent border border-white/5 rounded-3xl"
                         >
-                            <div className="w-24 h-24 rounded-full bg-orange-500/20 flex items-center justify-center mb-6 shadow-[0_0_50px_rgba(255,100,0,0.2)]">
-                                <Wand2 className="w-10 h-10 text-orange-500" />
+                            <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-orange-500/20 flex items-center justify-center mb-6 shadow-[0_0_50px_rgba(255,100,0,0.2)]">
+                                <Wand2 className="w-8 h-8 md:w-10 md:h-10 text-orange-500" />
                             </div>
-                            <h2 className="font-display font-black text-2xl uppercase tracking-tighter mb-2">Ready to Record</h2>
+                            <h2 className="font-display font-black text-xl md:text-2xl uppercase tracking-tighter mb-2">Ready to Record</h2>
                             <p className="text-white/40 text-sm text-center mb-8 font-mono">
                                 10 Credits per generation.
                             </p>
@@ -214,8 +214,8 @@ export default function Generate() {
                                     ))}
                                 </div>
 
-                                <h2 className="font-display font-black text-3xl uppercase tracking-tighter text-orange-500 animate-pulse mb-1">Synthesizing</h2>
-                                <p className="font-mono text-white/50 text-xs tracking-widest uppercase mb-6">Processing Audio Data...</p>
+                                <h2 className="font-display font-black text-2xl md:text-3xl uppercase tracking-tighter text-orange-500 animate-pulse mb-1 text-center">Synthesizing</h2>
+                                <p className="font-mono text-white/50 text-[10px] md:text-xs tracking-widest uppercase mb-6 text-center">Processing Audio Data...</p>
 
                                 {/* Progress Bar Container */}
                                 <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden border border-white/10 relative">
