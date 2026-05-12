@@ -9,9 +9,6 @@ export default function Checkout() {
     const location = useLocation();
     const navigate = useNavigate();
     const { setIsPro, addCredits } = useTape();
-    // Wait, TapeContext doesn't expose `setCredits`. I need to add a way to add credits!
-
-    // For now, let's just make the UI and then I'll add `addCredits` to TapeContext.
     const plan = location.state?.plan || 'Unknown Plan';
     const price = location.state?.price || '₹0';
     const credits = location.state?.credits || 0;
@@ -19,18 +16,29 @@ export default function Checkout() {
 
     const [paymentMethod, setPaymentMethod] = useState<'card' | 'upi' | 'wallet'>('card');
     const [isProcessing, setIsProcessing] = useState(false);
+    const [paymentError, setPaymentError] = useState<string | null>(null);
 
-    const handlePayment = () => {
+    const handlePayment = async () => {
         setIsProcessing(true);
-        setTimeout(() => {
-            // Success logic will go here
-            if (isProUnlock) {
-                setIsPro(true);
-            } else if (credits > 0) {
-                addCredits(credits);
-            }
-            navigate('/dashboard');
-        }, 1500);
+        setPaymentError(null);
+
+        // Simulate payment gateway delay
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        let error: string | null = null;
+        if (isProUnlock) {
+            error = await setIsPro(true);
+        } else if (credits > 0) {
+            error = await addCredits(credits);
+        }
+
+        if (error) {
+            setPaymentError(error);
+            setIsProcessing(false);
+            return;
+        }
+
+        navigate('/dashboard');
     };
 
     return (
@@ -168,6 +176,12 @@ export default function Checkout() {
                         {isProcessing ? 'Processing...' : `Pay ${price}`}
                         {!isProcessing && <Lock className="w-4 h-4" />}
                     </button>
+
+                    {paymentError && (
+                        <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-center">
+                            <p className="text-red-400 font-mono text-xs tracking-widest uppercase">{paymentError}</p>
+                        </div>
+                    )}
 
                     <p className="text-[9px] font-mono tracking-widest text-white/30 text-center uppercase">
                         Secured by Stripe • AES-256 Encryption

@@ -1,4 +1,6 @@
 import os
+import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -9,6 +11,7 @@ from dotenv import load_dotenv
 from fastapi import Cookie, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from gradio_client import Client as GradioClient, handle_file
 from pydantic import BaseModel, EmailStr
 from pymongo import MongoClient
 
@@ -46,6 +49,17 @@ cloudinary.config(
     api_key=os.getenv("CLOUDINARY_API_KEY"),
     api_secret=os.getenv("CLOUDINARY_API_SECRET"),
 )
+
+# ── ACE-Step Gradio client ──────────────────────────────────────────────────────
+HF_TOKEN = os.getenv("hf")
+REFERENCE_AUDIO_PATH = os.path.join(os.path.dirname(__file__), "reference_audio.mp3")
+DEFAULT_STYLE_PROMPT = "90 BPM, detroit hip-hop, aggressive rap, nasal male vocals, dark piano"
+NO_INSTRUMENT_STYLE_PROMPT = "90 BPM, a-cappella rap, aggressive vocals, nasal male voice, no instruments"
+
+# ── In-memory generation job tracking ───────────────────────────────────────────
+# Key: user_id, Value: dict with status/progress/error/cloudinary info
+generation_jobs: dict[str, dict] = {}
+jobs_lock = threading.Lock()
 
 # ── Cookie config ───────────────────────────────────────────────────────────────
 COOKIE_NAME = "access_token"
@@ -101,6 +115,130 @@ def _get_current_user(access_token: Optional[str] = Cookie(None)):
 def _safe_user(user: dict) -> dict:
     """Strip internal fields for client consumption."""
     return {k: v for k, v in user.items() if k not in ("_id", "password_hash")}
+
+
+def _progress_ticker(user_id: str):
+    """
+    Simulates progress from 0 → 97 over ~90 seconds while the blocking
+    Gradio API call runs in another thread. Stops if job completes or errors.
+    """
+    start = time.time()
+    while True:
+        time.sleep(2)
+        with jobs_lock:
+            job = generation_jobs.get(user_id)
+            if not job or job["status"] != "generating":
+                return
+            elapsed = time.time() - start
+            # Ease-out curve: fast early, slows near 97
+            target = min(97, int(97 * (1 - (1 / (1 + elapsed / 30)))))
+            job["progress"] = max(job["progress"], target)
+
+
+def _run_generation(user_id: str, lyrics: str, use_instruments: bool):
+    """
+    Background worker: calls ACE-Step Gradio API, uploads result to Cloudinary,
+    and updates the job state. Refunds credits on failure.
+    """
+    try:
+        gradio_client = GradioClient(
+            "ACE-Step/Ace-Step-v1.5", token=HF_TOKEN
+        )
+
+        style_prompt = DEFAULT_STYLE_PROMPT if use_instruments else NO_INSTRUMENT_STYLE_PROMPT
+
+        result = gradio_client.predict(
+            selected_model="acestep-v15-turbo",
+            generation_mode="custom",
+            simple_query_input="Eminem style rap song",
+            simple_vocal_language="en",
+            param_4=style_prompt,
+            param_5=lyrics,
+            param_6=90,
+            param_7="C Minor",
+            param_8="4",
+            param_9="en",
+            param_10=5,
+            param_11=7,
+            param_12=True,
+            param_13="-1",
+            param_14=handle_file(REFERENCE_AUDIO_PATH),
+            param_15=40,
+            param_16=1,
+            param_17=None, param_18="", param_19=0, param_20=-1,
+            param_21="Fill the audio semantic mask", param_22=1,
+            param_23="text2music", param_24=False, param_25=0,
+            param_26=1, param_27=3, param_28="ode", param_29="",
+            param_30="mp3", param_31=0.85, param_32=True, param_33=2,
+            param_34=0, param_35=0.9, param_36="NO USER INPUT",
+            param_37=True, param_38=True, param_39=True,
+            param_41=False, param_42=True, param_43=False,
+            param_44=False, param_45=0.5, param_46=8,
+            param_47="vocals", param_48=[], param_49=False,
+            api_name="/generation_wrapper",
+        )
+
+        # Extract .mp3 from result
+        # Log result structure for debugging
+        print(f"[GEN] Result type: {type(result)}, length: {len(result) if isinstance(result, (list, tuple)) else 'N/A'}")
+        for i, item in enumerate(result if isinstance(result, (list, tuple)) else []):
+            print(f"[GEN]   result[{i}]: {type(item).__name__} = {repr(item)[:200]}")
+
+        temp_path = None
+
+        # Try the expected index first
+        all_files = result[8] if isinstance(result, (list, tuple)) and len(result) > 8 else None
+        if all_files:
+            for f in all_files:
+                path = f if isinstance(f, str) else getattr(f, "name", getattr(f, "path", str(f)))
+                if path.endswith(".mp3"):
+                    temp_path = path
+                    break
+
+        # Fallback: scan all result indices for any .mp3 file path
+        if not temp_path and isinstance(result, (list, tuple)):
+            for item in result:
+                if isinstance(item, str) and item.endswith(".mp3"):
+                    temp_path = item
+                    break
+                if isinstance(item, (list, tuple)):
+                    for f in item:
+                        path = f if isinstance(f, str) else getattr(f, "name", getattr(f, "path", str(f)))
+                        if isinstance(path, str) and path.endswith(".mp3"):
+                            temp_path = path
+                            break
+                    if temp_path:
+                        break
+
+        if not temp_path:
+            raise RuntimeError(
+                f"No .mp3 found in generation result. "
+                f"result[8] was: {repr(all_files)[:300]}"
+            )
+
+        # Upload to Cloudinary
+        upload_result = cloudinary.uploader.upload(
+            temp_path, resource_type="video"
+        )
+
+        with jobs_lock:
+            job = generation_jobs.get(user_id)
+            if job and job["status"] == "generating":
+                job["status"] = "complete"
+                job["progress"] = 100
+                job["cloudinary_url"] = upload_result["secure_url"]
+                job["cloudinary_public_id"] = upload_result.get("public_id", "")
+
+    except Exception as e:
+        with jobs_lock:
+            job = generation_jobs.get(user_id)
+            if job:
+                job["status"] = "error"
+                job["error"] = str(e)
+        # Refund credits
+        users_collection.update_one(
+            {"id": user_id}, {"$inc": {"credits": 10}}
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -417,3 +555,206 @@ async def add_to_inventory(
     )
 
     return {"message": "Added to inventory"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GENERATION ENDPOINTS (authenticated)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class GenerateBody(BaseModel):
+    lyrics: str
+    useInstruments: bool = True
+    aiEnhancedLyrics: bool = False
+
+
+@app.post("/generate")
+async def start_generation(
+    body: GenerateBody, access_token: Optional[str] = Cookie(None)
+):
+    user = _get_current_user(access_token)
+    user_id = user["id"]
+
+    # Check if already generating
+    with jobs_lock:
+        existing = generation_jobs.get(user_id)
+        if existing and existing["status"] == "generating":
+            raise HTTPException(
+                status_code=409,
+                detail="A generation is already in progress",
+            )
+
+    # Check credits
+    if user.get("credits", 0) < 10:
+        raise HTTPException(status_code=403, detail="Not enough credits")
+
+    # Deduct credits
+    users_collection.update_one(
+        {"id": user_id}, {"$inc": {"credits": -10}}
+    )
+
+    # Initialize job state
+    with jobs_lock:
+        generation_jobs[user_id] = {
+            "status": "generating",
+            "progress": 0,
+            "error": None,
+            "cloudinary_url": None,
+            "cloudinary_public_id": None,
+        }
+
+    # Spawn background threads
+    gen_thread = threading.Thread(
+        target=_run_generation,
+        args=(user_id, body.lyrics, body.useInstruments),
+        daemon=True,
+    )
+    ticker_thread = threading.Thread(
+        target=_progress_ticker,
+        args=(user_id,),
+        daemon=True,
+    )
+    gen_thread.start()
+    ticker_thread.start()
+
+    return {"message": "Generation started"}
+
+
+@app.get("/generate/status")
+async def generation_status(
+    access_token: Optional[str] = Cookie(None),
+):
+    user = _get_current_user(access_token)
+    user_id = user["id"]
+
+    with jobs_lock:
+        job = generation_jobs.get(user_id)
+
+    if not job:
+        return {"status": "idle", "progress": 0}
+
+    return {
+        "status": job["status"],
+        "progress": job["progress"],
+        "error": job.get("error"),
+    }
+
+
+class SaveGeneratedBody(BaseModel):
+    name: str
+    color: str = "linear-gradient(to bottom right, #8b5cf6, #d946ef)"
+    isPublic: bool = False
+
+
+@app.post("/generate/save")
+async def save_generated_track(
+    body: SaveGeneratedBody, access_token: Optional[str] = Cookie(None)
+):
+    user = _get_current_user(access_token)
+    user_id = user["id"]
+
+    with jobs_lock:
+        job = generation_jobs.get(user_id)
+
+    if not job or job["status"] != "complete":
+        raise HTTPException(
+            status_code=400, detail="No completed generation to save"
+        )
+
+    song_id = str(uuid.uuid4())
+    song = {
+        "id": song_id,
+        "name": body.name,
+        "color": body.color,
+        "createdAt": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "audioUrl": job["cloudinary_url"],
+        "duration": 30,
+        "isPublic": body.isPublic,
+        "owner_id": user_id,
+    }
+
+    songs_collection.insert_one(song)
+    users_collection.update_one(
+        {"id": user_id}, {"$addToSet": {"song_ids": song_id}}
+    )
+
+    # Clear job state
+    with jobs_lock:
+        generation_jobs.pop(user_id, None)
+
+    saved_song = songs_collection.find_one({"id": song_id}, {"_id": 0})
+    return saved_song
+
+
+@app.post("/generate/cancel")
+async def cancel_generation(
+    access_token: Optional[str] = Cookie(None),
+):
+    user = _get_current_user(access_token)
+    user_id = user["id"]
+
+    with jobs_lock:
+        job = generation_jobs.get(user_id)
+
+    if not job:
+        return {"message": "No active generation"}
+
+    # If complete, clean up the uploaded Cloudinary asset
+    if job["status"] == "complete" and job.get("cloudinary_public_id"):
+        try:
+            cloudinary.uploader.destroy(
+                job["cloudinary_public_id"], resource_type="video"
+            )
+        except Exception:
+            pass
+
+    # If generating, the thread will see the status change and stop
+    with jobs_lock:
+        generation_jobs.pop(user_id, None)
+
+    return {"message": "Generation cancelled"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PURCHASE ENDPOINTS (authenticated)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class AddCreditsBody(BaseModel):
+    amount: int
+
+
+@app.post("/credits/add")
+async def add_credits(body: AddCreditsBody, access_token: Optional[str] = Cookie(None)):
+    """Add credits to the authenticated user's wallet after a confirmed purchase."""
+    user = _get_current_user(access_token)
+
+    if body.amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+
+    users_collection.update_one(
+        {"id": user["id"]}, {"$inc": {"credits": body.amount}}
+    )
+
+    updated = users_collection.find_one(
+        {"id": user["id"]}, {"_id": 0, "password_hash": 0}
+    )
+    return updated
+
+
+@app.post("/pro/upgrade")
+async def upgrade_to_pro(access_token: Optional[str] = Cookie(None)):
+    """Upgrade the authenticated user to Pro after a confirmed purchase."""
+    user = _get_current_user(access_token)
+
+    if user.get("is_pro", False):
+        raise HTTPException(status_code=409, detail="Already a Pro user")
+
+    users_collection.update_one(
+        {"id": user["id"]}, {"$set": {"is_pro": True}}
+    )
+
+    updated = users_collection.find_one(
+        {"id": user["id"]}, {"_id": 0, "password_hash": 0}
+    )
+    return updated

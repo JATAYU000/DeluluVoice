@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Info, Wand2, Mic2, CheckCircle2, ChevronLeft } from 'lucide-react';
+import { Info, Wand2, Mic2, CheckCircle2, ChevronLeft, AlertTriangle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTape, STRIPE_COLORS } from '../context/TapeContext';
 import { GoldCoin } from '../components/GoldCoin';
 
 export default function Generate() {
-    const { credits, generationState, startGeneration, saveGeneratedTape } = useTape();
+    const { credits, generationState, startGeneration, saveGeneratedTape, resetGeneration } = useTape();
     const navigate = useNavigate();
 
     // Form State
@@ -32,7 +32,7 @@ export default function Generate() {
     }, [generationState]);
 
     const handleStart = () => {
-        if (!lyrics.trim() || credits <= 0) return;
+        if (!lyrics.trim() || credits < 10) return;
         startGeneration(lyrics, useInstruments, aiEnhancedLyrics);
     };
 
@@ -313,6 +313,34 @@ export default function Generate() {
                                 className="w-full py-4 bg-white text-black hover:bg-white/90 font-black font-display text-lg tracking-widest uppercase rounded-xl transition-transform active:scale-[0.98] disabled:opacity-50 cursor-pointer"
                             >
                                 Save to Shelf
+                            </button>
+                        </motion.div>
+                    )}
+
+                    {/* ERROR STATE */}
+                    {generationState.status === 'error' && (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                            className="w-full flex flex-col items-center justify-center p-8 bg-gradient-to-br from-red-500/10 to-transparent border border-red-500/30 rounded-3xl"
+                        >
+                            <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(239,68,68,0.3)]">
+                                <AlertTriangle className="w-10 h-10 text-red-500" />
+                            </div>
+                            <h2 className="font-display font-black text-2xl uppercase tracking-tighter mb-2 text-red-400">Generation Failed</h2>
+                            <p className="text-white/40 text-sm text-center mb-2 font-mono">
+                                Something went wrong during synthesis.
+                            </p>
+                            <p className="text-white/30 text-xs text-center mb-8 font-mono break-all max-w-full">
+                                {generationState.error || 'Unknown error'}
+                            </p>
+                            <p className="text-green-400/70 text-xs text-center mb-6 font-mono">
+                                Your 10 credits have been refunded.
+                            </p>
+                            <button
+                                onClick={resetGeneration}
+                                className="w-full py-4 bg-white/10 hover:bg-white/20 text-white font-black font-display text-lg tracking-widest uppercase rounded-xl transition-all active:scale-[0.98] cursor-pointer"
+                            >
+                                Try Again
                             </button>
                         </motion.div>
                     )}

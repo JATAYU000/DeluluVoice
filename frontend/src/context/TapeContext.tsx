@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { useAuth } from "./AuthContext";
 
 const API = "http://localhost:8000";
@@ -24,11 +24,12 @@ export const STRIPE_COLORS = [
 ];
 
 export interface GenerationState {
-  status: "idle" | "generating" | "complete";
+  status: "idle" | "generating" | "complete" | "error";
   progress: number;
   lyrics: string;
   useInstruments: boolean;
   aiEnhancedLyrics: boolean;
+  error?: string;
 }
 
 interface TapeContextType {
@@ -36,8 +37,8 @@ interface TapeContextType {
   publicRecords: Cassette[];
   credits: number;
   isPro: boolean;
-  setIsPro: (val: boolean) => void;
-  addCredits: (amount: number) => void;
+  setIsPro: (val: boolean) => Promise<string | null>;
+  addCredits: (amount: number) => Promise<string | null>;
   generationState: GenerationState;
   startGeneration: (
     lyrics: string,
@@ -47,8 +48,7 @@ interface TapeContextType {
   saveGeneratedTape: (
     name: string,
     color: string,
-    isPublic: boolean,
-    file?: File
+    isPublic: boolean
   ) => Promise<void>;
   deleteTape: (id: string) => void;
   resetGeneration: () => void;
@@ -71,6 +71,8 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
     useInstruments: true,
     aiEnhancedLyrics: false,
   });
+
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Derived from auth context
   const credits = user?.credits ?? 0;
@@ -107,81 +109,201 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Simulates the backend generation process
+  // Clean up polling on unmount
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (generationState.status === "generating") {
-      interval = setInterval(() => {
-        setGenerationState((prev) => {
-          if (prev.progress >= 100) {
-            clearInterval(interval);
-            return { ...prev, status: "complete", progress: 100 };
-          }
-          // Random progress bumps to feel like real work
-          const bump = Math.random() * 3 + 1;
-          return { ...prev, progress: Math.min(100, prev.progress + bump) };
-        });
-      }, 1200);
-    }
-    return () => clearInterval(interval);
-  }, [generationState.status]);
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
 
-  const startGeneration = (
+  // ── Status polling ──────────────────────────────────────────────────────────
+  const startPolling = () => {
+    // Clear any existing poll
+    if (pollingRef.current) clearInterval(pollingRef.current);
+
+    pollingRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`${API}/generate/status`, {
+          credentials: "include",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (data.status === "complete") {
+          setGenerationState((prev) => ({
+            ...prev,
+            status: "complete",
+            progress: 100,
+          }));
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        } else if (data.status === "error") {
+          setGenerationState((prev) => ({
+            ...prev,
+            status: "error",
+            error: data.error || "Generation failed",
+          }));
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          pollingRef.current = null;
+          // Refresh user to get refunded credits
+          if (user) {
+            try {
+              const meRes = await fetch(`${API}/me`, { credentials: "include" });
+              if (meRes.ok) {
+                const meData = await meRes.json();
+                setUser(meData);
+              }
+            } catch { /* ignore */ }
+          }
+        } else if (data.status === "generating") {
+          setGenerationState((prev) => ({
+            ...prev,
+            progress: data.progress ?? prev.progress,
+          }));
+        }
+      } catch {
+        // Network error — keep polling
+      }
+    }, 3000);
+  };
+
+  // ── Check for in-progress generation on mount (e.g., page refresh) ──────────
+  useEffect(() => {
+    if (!user) return;
+
+    const checkExisting = async () => {
+      try {
+        const res = await fetch(`${API}/generate/status`, {
+          credentials: "include",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (data.status === "generating") {
+          setGenerationState((prev) => ({
+            ...prev,
+            status: "generating",
+            progress: data.progress ?? 0,
+          }));
+          startPolling();
+        } else if (data.status === "complete") {
+          setGenerationState((prev) => ({
+            ...prev,
+            status: "complete",
+            progress: 100,
+          }));
+        }
+      } catch { /* ignore */ }
+    };
+
+    checkExisting();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const startGeneration = async (
     lyrics: string,
     useInstruments: boolean,
     aiEnhancedLyrics: boolean
   ) => {
     if (credits < 10) return;
-    // Deduct credits locally — backend would also deduct in a real flow
-    if (user) {
-      setUser((prev) => (prev ? { ...prev, credits: prev.credits - 10 } : prev));
+
+    try {
+      const res = await fetch(`${API}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ lyrics, useInstruments, aiEnhancedLyrics }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error("Generation start failed:", err.detail);
+        return;
+      }
+
+      // Deduct credits locally for instant UI feedback
+      if (user) {
+        setUser((prev) => (prev ? { ...prev, credits: prev.credits - 10 } : prev));
+      }
+
+      setGenerationState({
+        status: "generating",
+        progress: 0,
+        lyrics,
+        useInstruments,
+        aiEnhancedLyrics,
+      });
+
+      // Start polling for status
+      startPolling();
+    } catch (err) {
+      console.error("Generation start failed:", err);
     }
-    setGenerationState({
-      status: "generating",
-      progress: 0,
-      lyrics,
-      useInstruments,
-      aiEnhancedLyrics,
-    });
   };
 
-  const addCredits = (amount: number) => {
-    if (user) {
-      setUser((prev) => (prev ? { ...prev, credits: prev.credits + amount } : prev));
+  const addCredits = async (amount: number): Promise<string | null> => {
+    try {
+      const res = await fetch(`${API}/credits/add`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ amount }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return err.detail || "Failed to add credits";
+      }
+      const updatedUser = await res.json();
+      setUser(updatedUser);
+      return null;
+    } catch {
+      return "Network error";
     }
   };
 
-  const setIsPro = (val: boolean) => {
-    if (user) {
-      setUser((prev) => (prev ? { ...prev, is_pro: val } : prev));
+  const setIsPro = async (_val: boolean): Promise<string | null> => {
+    try {
+      const res = await fetch(`${API}/pro/upgrade`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return err.detail || "Failed to upgrade";
+      }
+      const updatedUser = await res.json();
+      setUser(updatedUser);
+      return null;
+    } catch {
+      return "Network error";
     }
   };
 
   const saveGeneratedTape = async (
     name: string,
     color: string,
-    isPublic: boolean,
-    file?: File
+    isPublic: boolean
   ) => {
-    const formData = new FormData();
-    if (!file) {
-      console.log("No file provided");
-      return;
+    try {
+      const res = await fetch(`${API}/generate/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name, color, isPublic }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error("Save failed:", err.detail);
+        return;
+      }
+
+      await refreshInventory();
+      await refreshPublic();
+      resetGeneration();
+    } catch (err) {
+      console.error("Save failed:", err);
     }
-    formData.append("file", file);
-    formData.append("name", name);
-    formData.append("color", color);
-    formData.append("isPublic", String(isPublic));
-
-    await fetch(`${API}/upload`, {
-      method: "POST",
-      credentials: "include",
-      body: formData,
-    });
-
-    await refreshInventory();
-    await refreshPublic();
-    resetGeneration();
   };
 
   const deleteTape = async (id: string) => {
@@ -194,7 +316,20 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
     await refreshPublic();
   };
 
-  const resetGeneration = () => {
+  const resetGeneration = async () => {
+    // Tell backend to cancel/cleanup if needed
+    try {
+      await fetch(`${API}/generate/cancel`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch { /* ignore */ }
+
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+
     setGenerationState({
       status: "idle",
       progress: 0,
