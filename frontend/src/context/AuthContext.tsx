@@ -1,6 +1,13 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 
-const API = "http://localhost:8000";
+//const API = "http://localhost:8000";
+const API = "https://deluluvoice.onrender.com";
 
 export interface User {
   id: string;
@@ -16,8 +23,16 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string, rememberMe: boolean) => Promise<string | null>;
-  signup: (name: string, email: string, password: string) => Promise<string | null>;
+  login: (
+    email: string,
+    password: string,
+    rememberMe: boolean,
+  ) => Promise<string | null>;
+  signup: (
+    name: string,
+    email: string,
+    password: string,
+  ) => Promise<string | null>;
   logout: () => Promise<void>;
   updateProfile: (name?: string, avatarFile?: File) => Promise<string | null>;
   deleteAccount: () => Promise<string | null>;
@@ -53,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (
     email: string,
     password: string,
-    rememberMe: boolean
+    rememberMe: boolean,
   ): Promise<string | null> => {
     try {
       const res = await fetch(`${API}/auth/login`, {
@@ -77,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signup = async (
     name: string,
     email: string,
-    password: string
+    password: string,
   ): Promise<string | null> => {
     try {
       const res = await fetch(`${API}/auth/signup`, {
@@ -112,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfile = async (
     name?: string,
-    avatarFile?: File
+    avatarFile?: File,
   ): Promise<string | null> => {
     try {
       const formData = new FormData();
