@@ -10,3 +10,4 @@ PyJWT
 gradio_client
 auth
 requests
+pydantic[email]
