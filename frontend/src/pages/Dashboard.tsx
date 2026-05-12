@@ -10,6 +10,7 @@ import {
   Square,
   SkipBack,
   SkipForward,
+  Download,
 } from "lucide-react";
 import { useTape, type Cassette, STRIPE_COLORS } from "../context/TapeContext";
 import { useAuth } from "../context/AuthContext";
@@ -77,7 +78,7 @@ function CassetteGraphic({
             maxLength={20}
             value={displayName}
             onChange={(e) => onChangeName && onChangeName(e.target.value)}
-            className="absolute top-1 left-6 right-6 text-center text-black/90 font-display font-black text-[10px] uppercase z-20 bg-white/50 border border-black/20 rounded px-1 outline-none ring-1 ring-orange-500"
+            className="absolute top-0.5 left-10 right-10 text-center text-black/90 font-display font-black text-sm uppercase z-20 bg-white/50 border border-black/20 rounded px-1 py-0.5 outline-none ring-1 ring-orange-500"
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
@@ -994,7 +995,27 @@ export default function Dashboard() {
           </div>
 
           <AnimatePresence>
-            {showTapeModal && (
+            {showTapeModal && (() => {
+              const editingTape = inventory.find((t) => t.id === editingTapeId);
+              const handleDownload = async () => {
+                if (!editingTape?.audioUrl) return;
+                try {
+                  const response = await fetch(editingTape.audioUrl);
+                  const blob = await response.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `delulu-${newName || editingTape.name || "track"}.mp3`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  window.URL.revokeObjectURL(url);
+                } catch (err) {
+                  console.error("Download failed:", err);
+                }
+              };
+
+              return (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -1010,21 +1031,34 @@ export default function Dashboard() {
                   initial={{ scale: 0.9, y: 30 }}
                   animate={{ scale: 1, y: 0 }}
                   exit={{ scale: 0.9, y: 30 }}
-                  className="relative flex flex-col items-center gap-6"
+                  className="relative flex flex-col items-center gap-5 w-[480px]"
                   onClick={(e) => e.stopPropagation()}
                   onSubmit={handleSaveEdit}
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowTapeModal(false);
-                      setEditingTapeId(null);
-                      setIsDeleting(false);
-                    }}
-                    className="absolute -top-12 right-0 text-white/50 hover:text-white transition-colors bg-white/10 p-2 rounded-full"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+                  {/* Top-right action buttons */}
+                  <div className="absolute -top-12 right-0 flex items-center gap-2">
+                    {editingTape?.audioUrl && (
+                      <button
+                        type="button"
+                        onClick={handleDownload}
+                        className="text-white/50 hover:text-orange-500 transition-colors bg-white/10 hover:bg-white/15 p-2 rounded-full"
+                        title="Download MP3"
+                      >
+                        <Download className="w-5 h-5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowTapeModal(false);
+                        setEditingTapeId(null);
+                        setIsDeleting(false);
+                      }}
+                      className="text-white/50 hover:text-white transition-colors bg-white/10 p-2 rounded-full"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
 
                   {/* The giant tape interface */}
                   <div className="w-[450px] h-[280px]">
@@ -1033,10 +1067,7 @@ export default function Dashboard() {
                         id: editingTapeId || "temp",
                         name: newName,
                         color: newColor,
-                        createdAt: editingTapeId
-                          ? inventory.find((t) => t.id === editingTapeId)
-                              ?.createdAt || ""
-                          : "",
+                        createdAt: editingTape?.createdAt || "",
                       }}
                       isEditing={true}
                       tempName={newName}
@@ -1046,8 +1077,17 @@ export default function Dashboard() {
                     />
                   </div>
 
-                  <div className="flex flex-col gap-4 w-[450px]">
-                    <div className="flex justify-center mb-2">
+                  {/* Lyrics display */}
+                  {editingTape?.lyrics && (
+                    <div className="w-full bg-[#111] border border-white/10 rounded-xl p-1 max-h-[160px] overflow-y-auto shadow-inner">
+                      <pre className="text-white/60 font-mono text-xs leading-relaxed whitespace-pre-wrap text-center p-3 select-text">
+                        {editingTape.lyrics}
+                      </pre>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-4 w-full">
+                    <div className="flex justify-center mb-1">
                       <label className="flex items-center gap-3 cursor-pointer group">
                         <input
                           type="checkbox"
@@ -1100,7 +1140,8 @@ export default function Dashboard() {
                   </div>
                 </motion.form>
               </motion.div>
-            )}
+              );
+            })()}
           </AnimatePresence>
 
           {/* Profile Modal */}

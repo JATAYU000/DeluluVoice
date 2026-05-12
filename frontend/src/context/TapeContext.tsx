@@ -11,6 +11,7 @@ export interface Cassette {
   audioUrl?: string;
   duration?: number;
   isPublic?: boolean;
+  lyrics?: string;
 }
 
 export const STRIPE_COLORS = [

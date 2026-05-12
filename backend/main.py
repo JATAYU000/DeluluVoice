@@ -601,6 +601,7 @@ async def start_generation(
             "error": None,
             "cloudinary_url": None,
             "cloudinary_public_id": None,
+            "lyrics": body.lyrics,
         }
 
     # Spawn background threads
@@ -671,6 +672,7 @@ async def save_generated_track(
         "duration": 30,
         "isPublic": body.isPublic,
         "owner_id": user_id,
+        "lyrics": job.get("lyrics", ""),
     }
 
     songs_collection.insert_one(song)
