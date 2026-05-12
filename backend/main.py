@@ -3,7 +3,7 @@ import threading
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional, cast
 
 import cloudinary
 import cloudinary.uploader
@@ -26,9 +26,18 @@ load_dotenv()
 
 app = FastAPI()
 
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "FRONTEND_ORIGINS",
+        "http://localhost:5173,https://delulu-voice.vercel.app",
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -67,8 +76,16 @@ jobs_lock = threading.Lock()
 
 # ── Cookie config ───────────────────────────────────────────────────────────────
 COOKIE_NAME = "access_token"
-COOKIE_SECURE = False  # Set True in production (HTTPS only)
-COOKIE_SAMESITE = "lax"
+COOKIE_SAMESITE = cast(
+    Literal["lax", "strict", "none"],
+    os.getenv("COOKIE_SAMESITE", "none").lower(),
+)
+if COOKIE_SAMESITE not in ("lax", "strict", "none"):
+    COOKIE_SAMESITE = "none"
+COOKIE_SECURE = (
+    os.getenv("COOKIE_SECURE", "false").lower() in ("1", "true", "yes")
+    or COOKIE_SAMESITE == "none"
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

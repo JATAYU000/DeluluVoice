@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+const API = "https://deluluvoice.onrender.com";
+
 export default function UploadSongs() {
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
@@ -27,8 +29,9 @@ export default function UploadSongs() {
       );
       formData.append("isPublic", String(isPublic));
 
-      const response = await fetch("http://localhost:8000/upload", {
+      const response = await fetch(`${API}/upload`, {
         method: "POST",
+        credentials: "include",
         body: formData,
       });
 
