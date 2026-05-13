@@ -19,7 +19,18 @@ client = OpenAI(
 # EMBEDDING MODEL
 # =====================================================
 
-encoder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+encoder = None
+
+
+def get_encoder():
+
+    global encoder
+
+    if encoder is None:
+        encoder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+
+    return encoder
+
 
 # =====================================================
 # CHROMADB
