@@ -19,7 +19,7 @@ client = OpenAI(
 # EMBEDDING MODEL
 # =====================================================
 
-encoder = SentenceTransformer("BAAI/bge-large-en-v1.5")
+encoder = SentenceTransformer("BAAI/bge-small-en-v1.5")
 
 # =====================================================
 # CHROMADB
