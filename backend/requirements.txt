@@ -11,3 +11,6 @@ gradio_client
 auth
 requests
 pydantic[email]
+chromadb
+sentence-transformers
+openai

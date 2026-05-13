@@ -1,10 +1,10 @@
+import logging
 import os
 import threading
 import time
 import uuid
-import logging
 from datetime import datetime, timezone
-from typing import Literal, Optional, cast
+from typing import List, Literal, Optional, cast
 
 import cloudinary
 import cloudinary.uploader
@@ -20,9 +20,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from gradio_client import Client as GradioClient
 from gradio_client import handle_file
-from pymongo import MongoClient
 from pydantic import BaseModel, EmailStr
-from typing import List, Literal, Optional, cast
+from pymongo import MongoClient
+from rag import rewrite_lyrics
 
 load_dotenv()
 
@@ -96,6 +96,7 @@ COOKIE_SECURE = (
     or COOKIE_SAMESITE == "none"
 )
 
+
 # ── Pricing Data ───────────────────────────────────────────────────────────────
 class CreditPackage(BaseModel):
     credits: int
@@ -103,10 +104,12 @@ class CreditPackage(BaseModel):
     originalPrice: str
     popular: bool
 
+
 class PricingResponse(BaseModel):
     proStudioPrice: str
     proStudioOriginalPrice: str
     creditPackages: List[CreditPackage]
+
 
 PRICING_DATA = PricingResponse(
     proStudioPrice="₹999",
@@ -115,7 +118,7 @@ PRICING_DATA = PricingResponse(
         CreditPackage(credits=50, price="₹49", originalPrice="₹99", popular=False),
         CreditPackage(credits=200, price="₹99", originalPrice="₹299", popular=True),
         CreditPackage(credits=500, price="₹299", originalPrice="₹499", popular=False),
-    ]
+    ],
 )
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -193,7 +196,9 @@ def _run_generation(user_id: str, lyrics: str, use_instruments: bool):
     """
     try:
         logger.info(f"Starting generation for user {user_id}. HF_TOKEN: {HF_TOKEN}")
-        gradio_client = GradioClient("ACE-Step/Ace-Step-v1.5", token=HF_TOKEN, httpx_kwargs={"timeout": 300.0})
+        gradio_client = GradioClient(
+            "ACE-Step/Ace-Step-v1.5", token=HF_TOKEN, httpx_kwargs={"timeout": 300.0}
+        )
         logger.info("Gradio client initialized")
 
         style_prompt = (
@@ -659,6 +664,28 @@ class GenerateBody(BaseModel):
     aiEnhancedLyrics: bool = False
 
 
+class RewriteLyricsBody(BaseModel):
+    lyrics: str
+
+
+@app.post("/rewrite-lyrics")
+async def rewrite_lyrics_endpoint(
+    body: RewriteLyricsBody,
+    access_token: Optional[str] = Cookie(None),
+):
+    _get_current_user(access_token)
+
+    try:
+        rewritten = rewrite_lyrics(body.lyrics)
+
+        return {"original": body.lyrics, "rewritten": rewritten}
+
+    except Exception as e:
+        print("REWRITE ERROR:", e)
+
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/generate")
 async def start_generation(
     body: GenerateBody, access_token: Optional[str] = Cookie(None)
@@ -841,6 +868,8 @@ async def upgrade_to_pro(access_token: Optional[str] = Cookie(None)):
         {"id": user["id"]}, {"_id": 0, "password_hash": 0}
     )
     return updated
+
+
 @app.get("/pricing", response_model=PricingResponse)
 async def get_pricing():
     return PRICING_DATA
