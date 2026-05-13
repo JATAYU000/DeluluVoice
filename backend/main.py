@@ -207,7 +207,7 @@ def _run_generation(user_id: str, lyrics: str, use_instruments: bool):
         logger.info("Calling Gradio predict...")
         try:
             # FORCING FAILURE FOR TESTING
-            assert False 
+            assert False
 
             result = gradio_client.predict(
                 selected_model="acestep-v15-turbo",
@@ -269,7 +269,11 @@ def _run_generation(user_id: str, lyrics: str, use_instruments: bool):
                 all_files = result[8] if len(result) > 8 else None
                 if all_files:
                     for f in all_files:
-                        path = f if isinstance(f, str) else getattr(f, "name", getattr(f, "path", str(f)))
+                        path = (
+                            f
+                            if isinstance(f, str)
+                            else getattr(f, "name", getattr(f, "path", str(f)))
+                        )
                         if isinstance(path, str) and path.endswith(".mp3"):
                             temp_path = path
                             break
@@ -282,7 +286,11 @@ def _run_generation(user_id: str, lyrics: str, use_instruments: bool):
                             break
                         if isinstance(item, (list, tuple)):
                             for f in item:
-                                path = f if isinstance(f, str) else getattr(f, "name", getattr(f, "path", str(f)))
+                                path = (
+                                    f
+                                    if isinstance(f, str)
+                                    else getattr(f, "name", getattr(f, "path", str(f)))
+                                )
                                 if isinstance(path, str) and path.endswith(".mp3"):
                                     temp_path = path
                                     break
@@ -290,13 +298,13 @@ def _run_generation(user_id: str, lyrics: str, use_instruments: bool):
                                 break
         except Exception as e:
             logger.warning(f"Generation failed, using fallback: {e}")
-            temp_path = 'ref_test.mp3' # Using the existing reference audio as fallback
+            temp_path = "ref_test.mp3"  # Using the existing reference audio as fallback
 
         if not temp_path or not os.path.exists(temp_path):
-             # Final fallback check
-             if os.path.exists('ref_test.mp3'):
-                 temp_path = 'ref_test.mp3'
-             else:
+            # Final fallback check
+            if os.path.exists("ref_test.mp3"):
+                temp_path = "ref_test.mp3"
+            else:
                 raise RuntimeError("No audio file found for upload.")
 
         # Upload to Cloudinary
