@@ -1,30 +1,25 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mic2, Check, ArrowLeft, Crown } from 'lucide-react';
+import { Mic2, Check, ArrowLeft, Crown, Sparkles } from 'lucide-react';
 import { GoldCoin } from '../components/GoldCoin';
+import { useTape } from '../context/TapeContext';
 
-const creditPackages = [
-    {
-        credits: 50,
-        price: "₹99",
-        originalPrice: "₹149",
-        popular: false
-    },
-    {
-        credits: 200,
-        price: "₹299",
-        originalPrice: "₹499",
-        popular: true
-    },
-    {
-        credits: 500,
-        price: "₹499",
-        originalPrice: "₹999",
-        popular: false
-    }
-];
+interface CreditPackage {
+    credits: number;
+    price: string;
+    originalPrice: string;
+    popular: boolean;
+}
+
+interface PricingData {
+    proStudioPrice: string;
+    proStudioOriginalPrice: string;
+    creditPackages: CreditPackage[];
+}
 
 const proFeatures = [
+    "Unlimited Generations (No Credits Needed)",
     "Faster Synthesis Rates",
     "Extra Shelf Row (Unlocks 13 More Tape Slots)",
     "Premium Audio Quality",
@@ -33,6 +28,34 @@ const proFeatures = [
 ];
 
 export default function Pricing() {
+    const { isPro } = useTape();
+    const [pricingData, setPricingData] = useState<PricingData | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchPricing = async () => {
+            try {
+                const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+                const response = await fetch(`${baseUrl}/pricing`);
+                const data = await response.json();
+                setPricingData(data);
+            } catch (err) {
+                console.error("Failed to fetch pricing:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchPricing();
+    }, []);
+
+    if (loading || !pricingData) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center font-mono text-orange-500 tracking-widest uppercase animate-pulse">
+                Accessing pricing databanks...
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-black pt-10 px-4 pb-10 font-sans flex flex-col items-center justify-center">
             <Link to="/dashboard" className="fixed top-4 md:top-6 left-4 md:left-6 flex items-center gap-2 text-gray-400 hover:text-white transition-colors group z-50">
@@ -79,8 +102,8 @@ export default function Pricing() {
                             Pro Studio Plan
                         </h2>
                         <div className="flex items-baseline gap-3 mb-4">
-                            <span className="text-4xl font-black text-white">₹999</span>
-                            <span className="text-lg text-white/40 line-through font-bold">₹1,999</span>
+                            <span className="text-4xl font-black text-white">{pricingData.proStudioPrice}</span>
+                            <span className="text-lg text-white/40 line-through font-bold">{pricingData.proStudioOriginalPrice}</span>
                         </div>
 
                         <ul className="grid sm:grid-cols-2 gap-y-2 gap-x-4">
@@ -96,13 +119,20 @@ export default function Pricing() {
                     </div>
 
                     <div className="w-full md:w-auto shrink-0 relative z-10 mt-4 md:mt-0">
-                        <Link
-                            to="/checkout"
-                            state={{ plan: "Pro Studio Plan", price: "₹999", isProUnlock: true }}
-                            className="w-full md:w-auto px-8 py-4 bg-orange-500 hover:bg-orange-400 text-black font-black font-display text-base tracking-widest uppercase rounded-xl transition-transform active:scale-95 shadow-[0_0_20px_rgba(255,100,0,0.3)] inline-flex justify-center items-center"
-                        >
-                            Unlock Pro
-                        </Link>
+                        {isPro ? (
+                            <div className="w-full md:w-auto px-8 py-4 bg-white/10 text-white/50 font-black font-display text-base tracking-widest uppercase rounded-xl border border-white/10 inline-flex justify-center items-center gap-2">
+                                <Sparkles className="w-5 h-5 text-orange-500" />
+                                Active Plan
+                            </div>
+                        ) : (
+                            <Link
+                                to="/checkout"
+                                state={{ plan: "Pro Studio Plan", price: pricingData.proStudioPrice, isProUnlock: true }}
+                                className="w-full md:w-auto px-8 py-4 bg-orange-500 hover:bg-orange-400 text-black font-black font-display text-base tracking-widest uppercase rounded-xl transition-transform active:scale-95 shadow-[0_0_20px_rgba(255,100,0,0.3)] inline-flex justify-center items-center"
+                            >
+                                Unlock Pro
+                            </Link>
+                        )}
                     </div>
                 </motion.div>
 
@@ -112,7 +142,7 @@ export default function Pricing() {
                         Need More Tape?
                     </h3>
                     <div className="grid md:grid-cols-3 gap-3 w-full">
-                        {creditPackages.map((pkg, i) => (
+                        {pricingData.creditPackages.map((pkg, i) => (
                             <motion.div
                                 key={pkg.credits}
                                 initial={{ opacity: 0, y: 10 }}

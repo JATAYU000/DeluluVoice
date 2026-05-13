@@ -449,7 +449,7 @@ export default function Dashboard() {
             className="bg-[#111]/80 backdrop-blur-md border border-white/5 py-1.5 pl-2 pr-4 md:pr-5 rounded-full flex items-center gap-1 md:gap-2 hover:bg-[#1a1a1a] hover:border-orange-500/30 transition-all shadow-glass"
           >
             <GoldCoin className="w-6 h-6 md:w-7 md:h-7" />
-            <span className="font-bold text-xs md:text-sm text-[#fdfbf7]">{credits}</span>
+            <span className="font-bold text-xs md:text-sm text-[#fdfbf7]">{isPro ? '∞' : credits}</span>
           </Link>
           <button
             onClick={openNewTapeModal}

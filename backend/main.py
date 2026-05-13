@@ -2,6 +2,7 @@ import os
 import threading
 import time
 import uuid
+import logging
 from datetime import datetime, timezone
 from typing import Literal, Optional, cast
 
@@ -19,10 +20,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from gradio_client import Client as GradioClient
 from gradio_client import handle_file
-from pydantic import BaseModel, EmailStr
 from pymongo import MongoClient
+from pydantic import BaseModel, EmailStr
+from typing import List, Literal, Optional, cast
 
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("backend")
 
 app = FastAPI()
 
@@ -60,7 +69,7 @@ cloudinary.config(
 )
 
 # ── ACE-Step Gradio client ──────────────────────────────────────────────────────
-HF_TOKEN = os.getenv("HF")
+HF_TOKEN = os.getenv("KHF")
 REFERENCE_AUDIO_PATH = os.path.join(os.path.dirname(__file__), "reference_audio.mp3")
 DEFAULT_STYLE_PROMPT = (
     "90 BPM, detroit hip-hop, aggressive rap, nasal male vocals, dark piano"
@@ -87,6 +96,27 @@ COOKIE_SECURE = (
     or COOKIE_SAMESITE == "none"
 )
 
+# ── Pricing Data ───────────────────────────────────────────────────────────────
+class CreditPackage(BaseModel):
+    credits: int
+    price: str
+    originalPrice: str
+    popular: bool
+
+class PricingResponse(BaseModel):
+    proStudioPrice: str
+    proStudioOriginalPrice: str
+    creditPackages: List[CreditPackage]
+
+PRICING_DATA = PricingResponse(
+    proStudioPrice="₹999",
+    proStudioOriginalPrice="₹1,999",
+    creditPackages=[
+        CreditPackage(credits=50, price="₹49", originalPrice="₹99", popular=False),
+        CreditPackage(credits=200, price="₹99", originalPrice="₹299", popular=True),
+        CreditPackage(credits=500, price="₹299", originalPrice="₹499", popular=False),
+    ]
+)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # HELPERS
@@ -162,11 +192,15 @@ def _run_generation(user_id: str, lyrics: str, use_instruments: bool):
     and updates the job state. Refunds credits on failure.
     """
     try:
-        gradio_client = GradioClient("ACE-Step/Ace-Step-v1.5", token=HF_TOKEN)
+        logger.info(f"Starting generation for user {user_id}. HF_TOKEN: {HF_TOKEN}")
+        gradio_client = GradioClient("ACE-Step/Ace-Step-v1.5", token=HF_TOKEN, httpx_kwargs={"timeout": 300.0})
+        logger.info("Gradio client initialized")
 
         style_prompt = (
             DEFAULT_STYLE_PROMPT if use_instruments else NO_INSTRUMENT_STYLE_PROMPT
         )
+        logger.info(f"Using style prompt: {style_prompt}")
+        logger.info("Calling Gradio predict...")
 
         result = gradio_client.predict(
             selected_model="acestep-v15-turbo",
@@ -184,7 +218,7 @@ def _run_generation(user_id: str, lyrics: str, use_instruments: bool):
             param_12=True,
             param_13="-1",
             param_14=handle_file(REFERENCE_AUDIO_PATH),
-            param_15=40,
+            param_15=30,
             param_16=1,
             param_17=None,
             param_18="",
@@ -283,13 +317,17 @@ def _run_generation(user_id: str, lyrics: str, use_instruments: bool):
                 job["cloudinary_public_id"] = upload_result.get("public_id", "")
 
     except Exception as e:
+        logger.error(f"Generation failed for user {user_id}: {str(e)}", exc_info=True)
         with jobs_lock:
             job = generation_jobs.get(user_id)
             if job:
                 job["status"] = "error"
                 job["error"] = str(e)
-        # Refund credits
-        users_collection.update_one({"id": user_id}, {"$inc": {"credits": 10}})
+        # Refund credits for non-pro users
+        user = users_collection.find_one({"id": user_id})
+        if user and not user.get("is_pro", False):
+            logger.info(f"Refunding 10 credits to user {user_id}")
+            users_collection.update_one({"id": user_id}, {"$inc": {"credits": 10}})
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -637,12 +675,12 @@ async def start_generation(
                 detail="A generation is already in progress",
             )
 
-    # Check credits
-    if user.get("credits", 0) < 10:
-        raise HTTPException(status_code=403, detail="Not enough credits")
-
-    # Deduct credits
-    users_collection.update_one({"id": user_id}, {"$inc": {"credits": -10}})
+    # Check and deduct credits for non-pro users
+    is_pro = user.get("is_pro", False)
+    if not is_pro:
+        if user.get("credits", 0) < 10:
+            raise HTTPException(status_code=403, detail="Not enough credits")
+        users_collection.update_one({"id": user_id}, {"$inc": {"credits": -10}})
 
     # Initialize job state
     with jobs_lock:
@@ -803,3 +841,6 @@ async def upgrade_to_pro(access_token: Optional[str] = Cookie(None)):
         {"id": user["id"]}, {"_id": 0, "password_hash": 0}
     )
     return updated
+@app.get("/pricing", response_model=PricingResponse)
+async def get_pricing():
+    return PRICING_DATA

@@ -6,7 +6,7 @@ import { useTape, STRIPE_COLORS } from '../context/TapeContext';
 import { GoldCoin } from '../components/GoldCoin';
 
 export default function Generate() {
-    const { credits, generationState, startGeneration, saveGeneratedTape, resetGeneration } = useTape();
+    const { credits, isPro, generationState, startGeneration, saveGeneratedTape, resetGeneration } = useTape();
     const navigate = useNavigate();
 
     // Form State
@@ -32,7 +32,8 @@ export default function Generate() {
     }, [generationState]);
 
     const handleStart = () => {
-        if (!lyrics.trim() || credits < 10) return;
+        if (!lyrics.trim()) return;
+        if (!isPro && credits < 10) return;
         startGeneration(lyrics, useInstruments, aiEnhancedLyrics);
     };
 
@@ -53,7 +54,9 @@ export default function Generate() {
                 <div className="flex items-center gap-4">
                     <div className="bg-white/5 border border-white/10 px-4 py-1.5 rounded-full flex items-center gap-2">
                         <GoldCoin className="w-4 h-4" />
-                        <span className="font-mono text-xs tracking-widest text-white/80">{credits}</span>
+                        <span className="font-mono text-xs tracking-widest text-white/80">
+                            {isPro ? '∞' : credits}
+                        </span>
                     </div>
                 </div>
             </header>
