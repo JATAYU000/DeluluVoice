@@ -57,32 +57,22 @@ def rewrite_lyrics(user_lyrics: str):
     context = context[:3000]
 
     prompt = f"""
-You are an elite hip-hop ghostwriter.
+You are an expert hip-hop lyricist. Your task is to subtly enhance the flow and rhythm of the user's lyrics while keeping the core content and structure almost identical.
 
-STYLE:
-- multisyllabic rhymes
-- internal rhyme chains
-- aggressive cadence
-- layered wordplay
-- emotional intensity
-- technical lyrical complexity
+CONSTRAINTS:
+1. DO NOT over-change the lyrics. Keep them very close to the original.
+2. Only adjust the flow and context matching a very tiny bit.
+3. PRESERVE THE EXACT NUMBER OF LINES. If the user input has 4 lines, you MUST output exactly 4 lines.
+4. DO NOT include any conversational filler, headers, footers, or markdown. No "Here is the rewritten version" or "Let me know if you need anything else".
+5. OUTPUT ONLY THE PLAIN TEXT LYRICS.
 
-REFERENCE LYRICS:
+REFERENCE CONTEXT (for minor flow inspiration):
 {context}
 
 USER LYRICS:
 {user_lyrics}
 
-TASK:
-Rephrase the lyrics by keeping the number of lines in the user lyrics same as your output lyrics.
-Keep:
-- same meaning
-- same emotional tone
-
-Improve:
-- flow
-
-OUTPUT ONLY THE REWRITTEN LYRICS without markdown charectors like * just plain text lyrics.
+REWRITTEN LYRICS:
 """
 
     completion = client.chat.completions.create(
