@@ -190,6 +190,7 @@ export default function Dashboard() {
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   // The tape currently selected to be played or playing
   const [selectedTape, setSelectedTape] = useState<Cassette | null>(null);
@@ -219,6 +220,20 @@ export default function Dashboard() {
       if (next > 135) next = 135;
       return next;
     });
+  };
+
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleAddToInventory = async (tape: Cassette) => {
+    const success = await addToInventory(tape);
+    if (success) {
+      showToast("Added to inventory!");
+    } else {
+      showToast("Failed to add to inventory", "error");
+    }
   };
 
   // Rename Modal State
@@ -737,12 +752,12 @@ export default function Dashboard() {
                               />
                             </button>
                             <button
-                              onClick={() => addToInventory(tape)}
-                              className="w-10 h-10 rounded-full bg-black flex items-center justify-center hover:scale-110 transition-transform shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)] border border-[#333]"
-                              title="Add to Inventory"
-                            >
-                              <Plus className="w-5 h-5 text-white/50 hover:text-white" />
-                            </button>
+                               onClick={() => handleAddToInventory(tape)}
+                               className="w-10 h-10 rounded-full bg-black flex items-center justify-center hover:scale-110 transition-transform shadow-[inset_0_1px_3px_rgba(255,255,255,0.1)] border border-[#333]"
+                               title="Add to Inventory"
+                             >
+                               <Plus className="w-5 h-5 text-white/50 hover:text-white" />
+                             </button>
                           </div>
                         </div>
                       ))}
@@ -1205,6 +1220,24 @@ export default function Dashboard() {
           />
         </div>
       </div>
+
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 rounded-full font-display font-black tracking-widest uppercase text-xs shadow-2xl border ${
+              toast.type === "success"
+                ? "bg-orange-500 text-black border-orange-400"
+                : "bg-red-500 text-white border-red-400"
+            }`}
+          >
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

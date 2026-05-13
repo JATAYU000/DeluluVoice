@@ -38,6 +38,7 @@ export default function Generate() {
 
   // UI State
   const [showInfo, setShowInfo] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Synchronize initial state if coming back to page while generating
   useEffect(() => {
@@ -51,6 +52,7 @@ export default function Generate() {
   const handleStart = async () => {
     if (!lyrics.trim() || credits < 10) return;
 
+    setIsProcessing(true);
     let finalLyrics = lyrics;
 
     try {
@@ -68,25 +70,22 @@ export default function Generate() {
 
         const data = await response.json();
 
-        console.log(data);
-
         if (!response.ok || !data.rewritten) {
+          setIsProcessing(false);
           alert("Failed to enhance lyrics");
-
           return;
         }
 
         finalLyrics = data.rewritten;
-
         setLyrics(finalLyrics);
-
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
-      startGeneration(finalLyrics, useInstruments, aiEnhancedLyrics);
+      await startGeneration(finalLyrics, useInstruments, aiEnhancedLyrics);
+      setIsProcessing(false);
     } catch (err) {
       console.error(err);
-
+      setIsProcessing(false);
       alert("Failed to enhance lyrics");
     }
   };
@@ -252,7 +251,7 @@ export default function Generate() {
         {/* Right Side: Visualizer / State panel */}
         <div className="w-full lg:flex-[0.8] flex flex-col items-center justify-center relative perspective-[1000px]">
           {/* IDLE STATE */}
-          {generationState.status === "idle" && (
+          {generationState.status === "idle" && !isProcessing && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -279,7 +278,7 @@ export default function Generate() {
           )}
 
           {/* GENERATING STATE: Visualizer Animation */}
-          {generationState.status === "generating" && (
+          {(generationState.status === "generating" || isProcessing) && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}

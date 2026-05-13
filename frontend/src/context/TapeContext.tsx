@@ -61,7 +61,7 @@ interface TapeContextType {
   deleteTape: (id: string) => void;
   resetGeneration: () => void;
   updateTape: (id: string, updates: Partial<Cassette>) => void;
-  addToInventory: (tape: Cassette) => void;
+  addToInventory: (tape: Cassette) => Promise<boolean>;
   refreshInventory: () => Promise<void>;
 }
 
@@ -373,7 +373,7 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const addToInventory = async (tape: Cassette) => {
+  const addToInventory = async (tape: Cassette): Promise<boolean> => {
     try {
       const res = await fetch(`${API}/inventory/${tape.id}`, {
         method: "POST",
@@ -381,12 +381,15 @@ export function TapeProvider({ children }: { children: React.ReactNode }) {
       });
       if (res.ok) {
         await refreshInventory();
+        return true;
       } else {
         const err = await res.json().catch(() => ({}));
         console.error("Add to inventory failed:", err.detail);
+        return false;
       }
     } catch (err) {
       console.error("Add to inventory failed:", err);
+      return false;
     }
   };
 

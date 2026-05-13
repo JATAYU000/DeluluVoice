@@ -140,6 +140,25 @@ def _set_token_cookie(
         path="/",
     )
     return response
+    
+
+def _get_cloudinary_public_id(audio_url: str) -> Optional[str]:
+    """Extract public_id from a Cloudinary URL."""
+    try:
+        # URL like https://res.cloudinary.com/.../video/upload/v123/abcdef.mp3
+        parts = audio_url.split("/upload/")
+        if len(parts) == 2:
+            public_id = parts[1].rsplit(".", 1)[0]  # strip extension
+            # Remove version prefix (v1234567/) if present
+            if "/" in public_id:
+                # Check if the first part is a version string (starts with 'v')
+                sub_parts = public_id.split("/")
+                if sub_parts[0].startswith("v") and sub_parts[0][1:].isdigit():
+                    public_id = "/".join(sub_parts[1:])
+            return public_id
+    except Exception:
+        pass
+    return None
 
 
 def _get_current_user(access_token: Optional[str] = Cookie(None)):
@@ -468,21 +487,16 @@ async def delete_me(access_token: Optional[str] = Cookie(None)):
         if not song:
             continue
         if not song.get("isPublic", False):
-            # Private song – delete from Cloudinary + DB
-            audio_url = song.get("audioUrl", "")
-            if audio_url:
-                # Extract public_id from Cloudinary URL for deletion
-                try:
-                    # URL like https://res.cloudinary.com/.../video/upload/v123/abcdef.mp3
-                    parts = audio_url.split("/upload/")
-                    if len(parts) == 2:
-                        public_id = parts[1].rsplit(".", 1)[0]  # strip extension
-                        # Remove version prefix (v1234567/)
-                        if "/" in public_id:
-                            public_id = "/".join(public_id.split("/")[1:])
+            try:
+                # Private song – delete from Cloudinary + DB
+                audio_url = song.get("audioUrl", "")
+                if audio_url:
+                    # Extract public_id from Cloudinary URL for deletion
+                    public_id = _get_cloudinary_public_id(audio_url)
+                    if public_id:
                         cloudinary.uploader.destroy(public_id, resource_type="video")
-                except Exception:
-                    pass  # Best-effort cleanup
+            except Exception:
+                pass  # Best-effort cleanup
             songs_collection.delete_one({"id": sid})
         else:
             # Public song – just remove from this user's inventory
@@ -581,11 +595,8 @@ async def delete_song(song_id: str, access_token: Optional[str] = Cookie(None)):
         audio_url = song.get("audioUrl", "")
         if audio_url:
             try:
-                parts = audio_url.split("/upload/")
-                if len(parts) == 2:
-                    public_id = parts[1].rsplit(".", 1)[0]
-                    if "/" in public_id:
-                        public_id = "/".join(public_id.split("/")[1:])
+                public_id = _get_cloudinary_public_id(audio_url)
+                if public_id:
                     cloudinary.uploader.destroy(public_id, resource_type="video")
             except Exception:
                 pass
@@ -612,6 +623,23 @@ async def update_song(
     update_data = {k: v for k, v in updates.dict().items() if v is not None}
 
     if update_data:
+        # If isPublic is being updated, sync with Cloudinary tags
+        if "isPublic" in update_data:
+            song = songs_collection.find_one({"id": song_id})
+            if song:
+                audio_url = song.get("audioUrl", "")
+                public_id = _get_cloudinary_public_id(audio_url)
+                if public_id:
+                    try:
+                        tag = "public" if update_data["isPublic"] else "private"
+                        # Remove old visibility tags and add new one
+                        cloudinary.uploader.remove_tag("public", [public_id], resource_type="video")
+                        cloudinary.uploader.remove_tag("private", [public_id], resource_type="video")
+                        cloudinary.uploader.add_tag(tag, [public_id], resource_type="video")
+                        logger.info(f"Updated Cloudinary tag to {tag} for {public_id}")
+                    except Exception as e:
+                        logger.warning(f"Failed to update Cloudinary tags: {e}")
+
         songs_collection.update_one({"id": song_id}, {"$set": update_data})
 
     updated_song = songs_collection.find_one({"id": song_id}, {"_id": 0})
