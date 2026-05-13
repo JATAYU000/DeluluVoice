@@ -19,18 +19,7 @@ client = OpenAI(
 # EMBEDDING MODEL
 # =====================================================
 
-encoder = None
-
-
-def get_encoder():
-
-    global encoder
-
-    if encoder is None:
-        encoder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-
-    return encoder
-
+encoder = SentenceTransformer("BAAI/bge-large-en-v1.5")
 
 # =====================================================
 # CHROMADB
@@ -85,21 +74,15 @@ USER LYRICS:
 {user_lyrics}
 
 TASK:
-Rewrite the lyrics into a more advanced rap verse.
-
+Rephrase the lyrics by keeping the number of lines in the user lyrics same as your output lyrics.
 Keep:
 - same meaning
 - same emotional tone
 
 Improve:
 - flow
-- rhyme density
-- cadence
-- lyrical complexity
 
-DO NOT copy reference lyrics directly.
-
-OUTPUT ONLY THE REWRITTEN LYRICS.
+OUTPUT ONLY THE REWRITTEN LYRICS without markdown charectors like * just plain text lyrics.
 """
 
     completion = client.chat.completions.create(
